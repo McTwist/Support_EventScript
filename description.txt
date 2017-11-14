@@ -1,0 +1,3 @@
+Title: EventScript
+Author: McTwist
+Enables event scripting
