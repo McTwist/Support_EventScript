@@ -46,6 +46,7 @@ function EventScript_fromScript(%script)
 			case "#":
 				%n = strpos(%script, "\n", %i);
 				%i = (%n < 0) ? %len : %n;
+				%line++;
 			// Enabled / Delay
 			case "[":
 				%n = strpos(%script, "]", %i);
