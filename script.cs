@@ -205,7 +205,7 @@ function EventScript_fromScript(%script)
 					}
 				}
 
-				%data = trim(getSubStr(%script, %i+1, %n - (%i+1)));
+				%data = getSubStr(%script, %i+1, %n - (%i+1));
 				%data = strReplace(%data, "\\\"", "\"");
 				%data = strReplace(%data, "\\\\", "\\");
 
