@@ -49,7 +49,7 @@ function EventScriptServer_save(%brick)
 		{
 			%paramField = getField(%paramList, %n);
 			%param = %brick.eventOutputParameter[%i, %n+1];
-			
+
 			// Translate parameter
 			switch$ (getWord(%paramField, 0))
 			{
@@ -65,9 +65,9 @@ function EventScriptServer_save(%brick)
 				%param = %param;
 			case "datablock":
 				if (isObject(%param))
-					%param = %param.getName();
+					%param = %param.uiName;
 				else
-					%param = -1;
+					%param = "";
 			case "vector":
 				%param = %param;
 			case "list":
@@ -193,11 +193,11 @@ function EventScriptServer_load(%brick, %script)
 			%param = getField(%params, %n);
 			
 			// Translate parameter
-			switch$ (getWord(%paramField, 0))
+			switch$ (strlwr(getWord(%paramField, 0)))
 			{
 			case "int":
 				%param = atoi(%param);
-			case "intList":
+			case "intlist":
 				%count = getWordcount(%paramField);
 				for (%m = 0; %m < %count; %m++)
 				{
@@ -215,10 +215,45 @@ function EventScriptServer_load(%brick, %script)
 			case "string":
 				%param = %param;
 			case "datablock":
+				%uiName = %param;
+				%type = getWord(%paramField, 1);
+				
+				switch$ (strlwr(%type))
+				{
+				case "fxbrickdata":
+					%param = $uiNameTable[%param];
+				case "fxlightdata":
+					%param = $uiNameTable_Lights[%param];
+				case "particleemitterdata":
+					%param = $uiNameTable_Emitters[%param];
+				case "itemdata":
+					%param = $uiNameTable_Items[%param];
+				case "audioprofile":
+					%param = $uiNameTable_Music[%param];
+					if (!isObject(%param))
+						%param = $uiNameTable_Sounds[%param];
+				case "playerdata":
+					%param = $uiNameTable_Vehicle[%param];
+					if (!isObject(%param))
+						%param = $uiNameTable_Player[%param];
+				case "wheeledvehicledata":
+					%param = $uiNameTable_Vehicle[%param];
+				case "flyingvehicledata":
+					%param = $uiNameTable_Vehicle[%param];
+				case "hovervehicledata":
+					%param = $uiNameTable_Vehicle[%param];
+				default:
+					// Apparently this is also legal
+					%param = $uiNameTable_[%type @ %param];
+				}
+
 				if (isObject(%param))
 					%param = %param.getID();
 				else
+				{
+					warn("EventScriptServer_load :: Datablock uiName \"" @ %uiName @ "\" does not exist on line " @ %line);
 					%param = -1;
+				}
 			case "vector":
 				%param = %param;
 			case "list":
@@ -231,7 +266,7 @@ function EventScriptServer_load(%brick, %script)
 						break;
 					}
 				}
-			case "paintColor":
+			case "paintcolor":
 				// Locate the closest color
 				%dist = 2;
 				%closest = 0;
