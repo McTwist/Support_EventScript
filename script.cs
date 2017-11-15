@@ -1,7 +1,7 @@
 // ======================
 // EventScript
 // Author: McTwist (9845)
-// Version: 1.0.20171114
+// Version: 1.0.20171115
 // ======================
 // EventScript is a script language designed for an easier conversion
 // between the in-game event system and a text version that can be used
@@ -316,6 +316,9 @@ function EventScript_fromScript(%script)
 // Return script is a redommendation of style standard
 function EventScript_toScript(%list)
 {
+	// Set newline
+	%nl = isWindows() ? "\r\n" : "\n";
+
 	%script = "";
 
 	for (%i = 0; %i < %list.count; %i++)
@@ -375,7 +378,7 @@ function EventScript_toScript(%list)
 		// End params
 		if (%count > 0)
 			%script = %script @ ")";
-		%script = %script @ "\n";
+		%script = %script @ %nl;
 	}
 
 	return %script;
