@@ -120,7 +120,7 @@ function EventScriptClient_load(%script)
 	if (!WrenchEventsDlg.isAwake())
 		return;
 
-	%list = EventScript_fromScript(%script);
+	%list = EventScript_fromScript(%script, EventScriptClient_error);
 
 	// Handle errors
 	if (%list.error)
@@ -128,6 +128,8 @@ function EventScriptClient_load(%script)
 		%list.delete();
 		return;
 	}
+
+	%warnings = "";
 
 	// Clear previous ones
 	WrenchEventsDlg.clear();
@@ -158,7 +160,7 @@ function EventScriptClient_load(%script)
 		// Invalid
 		if (%inputEventIdx $= -1)
 		{
-			error("EventScriptClient_load :: Invalid input event \"" @ %inputEventName @"\" on line " @ %line);
+			EventScriptClient_error("Error :: Invalid input event \"" @ %inputEventName @"\" on line " @ %line);
 			%event.getObject(%n).setSelected(-1);
 			$WrenchEventLoading = 0;
 			wrenchEventsDlg.newEvent();
@@ -184,7 +186,7 @@ function EventScriptClient_load(%script)
 				// Invalid
 				if (%NTIdx $= -1)
 				{
-					error("EventScriptClient_load :: Invalid brick name \"" @ %NTName @ "\" on line " @ %line);
+					EventScriptClient_error("Error :: Invalid brick name \"" @ %NTName @ "\" on line " @ %line);
 					$WrenchEventLoading = 0;
 					return;
 				}
@@ -217,7 +219,7 @@ function EventScriptClient_load(%script)
 
 		if (%outputEventIdx $= -1)
 		{
-			error("EventScriptClient_load :: Invalid output event \"" @ %outputEventName @ "\" on line " @ %line);
+			EventScriptClient_error("Error :: Invalid output event \"" @ %outputEventName @ "\" on line " @ %line);
 			$WrenchEventLoading = 0;
 			return;
 		}
@@ -228,7 +230,7 @@ function EventScriptClient_load(%script)
 
 		if (getFieldCount(%params) != (%event.getCount() - %n))
 		{
-			error("EventScriptClient_load :: Invalid amount of parameters for output event \"" @ %outputEventName @ "\" on line " @ %line);
+			EventScriptClient_error("Error :: Invalid amount of parameters for output event \"" @ %outputEventName @ "\" on line " @ %line);
 			$WrenchEventLoading = 0;
 			return;
 		}
@@ -266,7 +268,7 @@ function EventScriptClient_load(%script)
 						}
 					}
 					if (%dist > 0)
-						warn("EventScriptClient_load :: Colorset does not contain the desired color on line " @ %line);
+						%warnings = (%warnings !$= "" ? %warnings @ "\n" : "") @ ("Warning :: Colorset does not contain the desired color on line " @ %line);
 					wrenchEventsDlg.pickColor(%param, %closest);
 				}
 				// Vector
@@ -279,7 +281,7 @@ function EventScriptClient_load(%script)
 			case "GuiPopUpMenuCtrl":
 				%parIdx = %param.findText(%par);
 				if (%parIdx $= -1)
-					warn("EventScriptClient_load :: Invalid output parameter \"" @ %par @ "\" on line " @ %line);
+					%warnings = (%warnings !$= "" ? %warnings @ "\n" : "") @ ("Warning :: Invalid output parameter \"" @ %par @ "\" on line " @ %line);
 				%param.setSelected(%parIdx);
 			// The rest
 			default:
@@ -290,6 +292,9 @@ function EventScriptClient_load(%script)
 	}
 
 	%list.delete();
+
+	if (%warnings !$= "")
+		EventScriptClient_error(%warnings);
 }
 
 // Sets the clipboard the result of saving the events to a script
@@ -310,5 +315,11 @@ function EventScriptClient_paste(%down)
 		%script = getClipboard();
 		EventScriptClient_load(%script);
 	}
+}
+
+// Display information about an error that occured
+function EventScriptClient_error(%error)
+{
+	MessageBoxOK("EventScript", %error);
 }
 
