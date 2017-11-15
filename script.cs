@@ -10,8 +10,11 @@
 // Create list from script
 // Requires a script which will be parsed into an object
 // Returns an object containing information about the script
-function EventScript_fromScript(%script)
+function EventScript_fromScript(%script, %error)
 {
+	if (!isFunction(%error))
+		%error = error;
+
 	%list = new ScriptObject();
 	%list.error = false;
 	%list.count = 0;
@@ -52,7 +55,7 @@ function EventScript_fromScript(%script)
 				%n = strpos(%script, "]", %i);
 				if (%n < 0)
 				{
-					error("Parse Error: Missing ending delimeter ] on line " @ %line);
+					call(%error, "Parse Error: Missing ending delimeter ] on line " @ %line);
 					%list.error = true;
 					return %list;
 				}
@@ -80,7 +83,7 @@ function EventScript_fromScript(%script)
 				%n = strpos(%script, "->", %i);
 				if (%n < 0)
 				{
-					error("Parse Error: Missing input delimeter -> on line " @ %line);
+					call(%error, "Parse Error: Missing input delimeter -> on line " @ %line);
 					%list.error = true;
 					return %list;
 				}
@@ -106,7 +109,7 @@ function EventScript_fromScript(%script)
 				%n = strpos(%script, "\"", %i+1);
 				if (%n < 0)
 				{
-					error("Parse Error: Missing ending delimeter \" on line " @ %line);
+					call(%error, "Parse Error: Missing ending delimeter \" on line " @ %line);
 					%list.error = true;
 					return %list;
 				}
@@ -118,7 +121,7 @@ function EventScript_fromScript(%script)
 				%n = strpos(%script, "->", %i);
 				if (%n < 0)
 				{
-					error("Parse Error: Missing target delimeter -> on line " @ %line);
+					call(%error, "Parse Error: Missing target delimeter -> on line " @ %line);
 					%list.error = true;
 					return %list;
 				}
@@ -129,7 +132,7 @@ function EventScript_fromScript(%script)
 				%n = strpos(%script, "->", %i);
 				if (%n < 0)
 				{
-					error("Parse Error: Missing target delimeter -> on line " @ %line);
+					call(%error, "Parse Error: Missing target delimeter -> on line " @ %line);
 					%list.error = true;
 					return %list;
 				}
@@ -247,7 +250,7 @@ function EventScript_fromScript(%script)
 				// Got none
 				else
 				{
-					error("Parse Error: Missing paranthesis delimeter ) on line " @ %line);
+					call(%error, "Parse Error: Missing paranthesis delimeter ) on line " @ %line);
 					%list.error = true;
 					return %list;
 				}
@@ -288,7 +291,7 @@ function EventScript_fromScript(%script)
 				// Got none
 				else
 				{
-					error("Parse Error: Missing paranthesis delimeter ) on line " @ %line);
+					call(%error, "Parse Error: Missing paranthesis delimeter ) on line " @ %line);
 					%list.error = true;
 					return %list;
 				}
