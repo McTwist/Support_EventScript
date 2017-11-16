@@ -1,7 +1,7 @@
 //
 // EventScript Server
 // Author: McTwist (9845)
-// Date: 2017-11-14
+// Date: 2017-11-16
 //
 // Contains the server version of transforming an EventScript list object
 // into either readable script or usable events.
@@ -186,7 +186,6 @@ function EventScriptServer_load(%brick, %script)
 			return;
 		}
 
-		// TODO: Verify these params accordingly
 		for (%n = 0; %n <= %count; %n++)
 		{
 			%paramField = getField(%paramList, %n);
@@ -196,24 +195,39 @@ function EventScriptServer_load(%brick, %script)
 			switch$ (strlwr(getWord(%paramField, 0)))
 			{
 			case "int":
-				%param = atoi(%param);
+				%min = mFloor(getWord(%paramField, 1));
+				%max = mFloor(getWord(%paramField, 2));
+				if (%param $= "")
+					%param = mFloor(getWord(%paramField, 3));
+				%param = mClamp(%param, %min, %max);
+
 			case "intlist":
-				%count = getWordcount(%paramField);
-				for (%m = 0; %m < %count; %m++)
+				if (%param !$= "ALL")
 				{
-					if (%param $= getWord(%paramField, 1 + (%m * 2)))
-					{
-						%param = getField(%paramField, 2 + (%m * 2));
-						break;
-					}
+					%count = getWordcount(%param);
+					for (%m = 0; %m < %count; %m++)
+						setWord(%param, %m, atoi(getWord(%param, %m)));
 				}
-				%param = atoi(getWord(%paramField, 1 + (%param * 2)));
+
 			case "float":
-				%param = atof(%param);
+				%min = atof(getWord(%paramField, 1));
+				%max = atof(getWord(%paramField, 2));
+				%step = mAbs(getWord(%paramField, 3));
+				if (%param $= "")
+					%param = atof(getWord(%paramField, 4));
+				%param = mClampf(%param, %min, %max);
+				%steps = mFloor((%param - %min) / %step);
+				%param = %min + %steps * %step;
+
 			case "bool":
 				%param = !!%param;
+
 			case "string":
-				%param = %param;
+				// TODO: Add more checks for ML control chars
+				%param = getSubStr(%param, 0, mFloor(getWord(%paramField, 1)));
+				%param = chatWhiteListFilter(%param);
+				%param = strReplace(%param, ";", "");
+
 			case "datablock":
 				%uiName = %param;
 				%type = getWord(%paramField, 1);
@@ -254,18 +268,43 @@ function EventScriptServer_load(%brick, %script)
 					warn("EventScriptServer_load :: Datablock uiName \"" @ %uiName @ "\" does not exist on line " @ %line);
 					%param = -1;
 				}
+
 			case "vector":
-				%param = %param;
+				%x = atof(getWord(%param, 0));
+				%y = atof(getWord(%param, 1));
+				%z = atof(getWord(%param, 2));
+				%mag = atoi(getWord(%parmaField, 1));
+				if (%mag == 0)
+					%mag = 200;
+				%vec = %x SPC %y SPC %z;
+				if (vectorLen(%vec) > %mag)
+				{
+					%vec = vectorNormalize(%vec);
+					%vec = vectorScale(%vec, %mag);
+				}
+				%param = %vec;
+
 			case "list":
 				%count = getWordcount(%paramField);
+				%found = "";
+
 				for (%m = 0; %m < %count; %m++)
 				{
 					if (stricmp(%param, getWord(%paramField, 1 + (%m * 2))) == 0)
 					{
-						%param = getField(%paramField, 2 + (%m * 2));
+						%found = getWord(%paramField, 2 + (%m * 2));
 						break;
 					}
 				}
+
+				if (%found $= "")
+				{
+					warn("EventScriptServer_load :: Item name \"" @ %param @ "\" does not exist in list on line " @ %line);
+					%found = getWord(%paramField, 2);
+				}
+
+				%param = %found;
+
 			case "paintcolor":
 				// Locate the closest color
 				%dist = 2;
