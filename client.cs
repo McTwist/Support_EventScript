@@ -18,7 +18,7 @@ CreateBind("EventScript", "Paste", EventScriptClient_paste);
 // Save events to a script string
 function EventScriptClient_save()
 {
-	if (!isObject(WrenchEvents_Box))
+	if (!isObject(WrenchEventsDlg) || !isObject(WrenchEvents_Box))
 		return;
 	if (!WrenchEventsDlg.isAwake())
 		return;
