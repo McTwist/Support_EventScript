@@ -322,26 +322,39 @@ function EventScriptClient_paste(%down)
 }
 
 // Open the script editor window
-function EventScriptClient_openEditor()
+function EventScriptClient_openEditor(%down)
 {
 	if (!isObject(WrenchEventsDlg) || !isObject(WrenchEvents_Box))
 		return;
 	if (!WrenchEventsDlg.isAwake())
 		return;
 
-	%script = EventScriptClient_save();
-	EventScriptEditor_Content.setText(%script);
-	Canvas.pushDialog(EventScriptEditorWindow);
+	if (!%down)
+	{
+		// Set to same size and position as event window
+		%position = WrenchEvents_Window.getPosition();
+		%extent = WrenchEvents_Window.getExtent();
+		EventScriptEditorWindow.getObject(0).resize(
+			getWord(%position, 0), getWord(%position, 1),
+			getWord(%extent, 0), getWord(%extent, 1));
+
+		%script = EventScriptClient_save();
+		EventScriptEditor_Content.setText(%script);
+		Canvas.pushDialog(EventScriptEditorWindow);
+	}
 }
 
 // Close the script editor window
-function EventScriptClient_closeEditor()
+function EventScriptClient_closeEditor(%save)
 {
 	if (!EventScriptEditorWindow.isAwake())
 		return;
 
-	%script = EventScriptEditor_Content.getText();
-	EventScriptClient_load(%script);
+	if (%save)
+	{
+		%script = EventScriptEditor_Content.getText();
+		EventScriptClient_load(%script);
+	}
 	Canvas.popDialog(EventScriptEditorWindow);
 }
 

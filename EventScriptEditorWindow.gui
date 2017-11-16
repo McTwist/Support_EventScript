@@ -26,12 +26,35 @@ new GuiControl(EventScriptEditorWindow) {
       resizeHeight = "1";
       canMove = "1";
       canClose = "1";
-      canMinimize = "1";
+      canMinimize = "0";
       canMaximize = "1";
-      minSize = "50 50";
-      command = "EventScriptClient_closeEditor();";
-      closeCommand = "EventScriptClient_closeEditor();";
+      minSize = "300 300";
+      accelerator = "escape";
+      command = "EventScriptClient_closeEditor(false);";
+      closeCommand = "EventScriptClient_closeEditor(false);";
 
+      new GuiBitmapButtonCtrl() {
+         profile = "GuiButtonProfile";
+         horizSizing = "left";
+         vertSizing = "bottom";
+         position = "280 4";
+         extent = "56 17";
+         minExtent = "8 2";
+         enabled = "1";
+         visible = "1";
+         clipToParent = "1";
+         command = "EventScriptClient_closeEditor(true);";
+         text = "Save";
+         groupNum = "-1";
+         buttonType = "PushButton";
+         bitmap = "base/button2";
+         lockAspectRatio = "0";
+         alignLeft = "0";
+         alignTop = "0";
+         overflowImage = "0";
+         mKeepCached = "0";
+         mColor = "255 255 255 255";
+      };
       new GuiScrollCtrl() {
          profile = "EventScriptEditor_ScrollProfile";
          horizSizing = "width";
