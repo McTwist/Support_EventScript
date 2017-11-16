@@ -1,19 +1,23 @@
 //
 // EventScript Client
 // Author: McTwist (9845)
-// Date: 2017-11-14
+// Date: 2017-11-16
 //
 // Contains the client version of transforming an EventScript list object
 // into either readable script or usable events.
 
 
-// Load needed script file
+// Load needed script files
 exec("./script.cs");
 exec("./bind.cs");
+
+exec("./EventScriptEditorProfiles.cs");
+exec("./EventScriptEditorWindow.gui");
 
 // Declare keybinds
 CreateBind("EventScript", "Copy", EventScriptClient_copy);
 CreateBind("EventScript", "Paste", EventScriptClient_paste);
+CreateBind("EventScript", "Editor", EventScriptClient_openEditor);
 
 // Save events to a script string
 function EventScriptClient_save()
@@ -315,6 +319,30 @@ function EventScriptClient_paste(%down)
 		%script = getClipboard();
 		EventScriptClient_load(%script);
 	}
+}
+
+// Open the script editor window
+function EventScriptClient_openEditor()
+{
+	if (!isObject(WrenchEventsDlg) || !isObject(WrenchEvents_Box))
+		return;
+	if (!WrenchEventsDlg.isAwake())
+		return;
+
+	%script = EventScriptClient_save();
+	EventScriptEditor_Content.setText(%script);
+	Canvas.pushDialog(EventScriptEditorWindow);
+}
+
+// Close the script editor window
+function EventScriptClient_closeEditor()
+{
+	if (!EventScriptEditorWindow.isAwake())
+		return;
+
+	%script = EventScriptEditor_Content.getText();
+	EventScriptClient_load(%script);
+	Canvas.popDialog(EventScriptEditorWindow);
 }
 
 // Display information about an error that occured
