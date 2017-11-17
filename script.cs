@@ -26,8 +26,13 @@ function EventScript_fromScript(%script, %error)
 
 	%len = strlen(%script);
 
+	%indexTableCount = 0;
+
 	%state = 0;
 	%line = 1;
+
+	// PASS 1
+	// Read through the string and add everything to the list
 
 	for (%i = 0; %i < %len; %i++)
 	{
@@ -566,6 +571,18 @@ function EventScript_fromScript(%script, %error)
 					%list.count++;
 				}
 
+			// Indexing
+			case "[":
+
+				// Set default values for table element
+				%indexTableLine[%indexTableCount] = %line;
+				%indexTableIndex[%indexTableCount] = %list.count;
+				%indexTableParam[%indexTableCount] = getFieldCount(%list.value[%list.count, "param"]);
+				%indexTableType[%indexTableCount] = -1;
+				%indexTableListCount[%indexTableCount] = 0;
+
+				%state = 4;
+
 			// Number / Boolean / Naked string
 			default:
 
@@ -638,6 +655,168 @@ function EventScript_fromScript(%script, %error)
 					%list.count++;
 				}
 			}
+
+		// Indexing
+		case 4:
+
+			%readChars = false;
+			%lastSpace = false;
+
+			// Verify characters
+			for (%n = %i; %n < %len; %n++)
+			{
+				%c = getSubStr(%script, %n, 1);
+
+				if (strpos(" \t\n", %c) >= 0)
+				{
+					if (%readChars)
+						%lastSpace = true;
+					if (%c $= "\n")
+						%line++;
+				}
+				else if (%c $= "]" || %c $= ":" || %c $= ",")
+				{
+					break;
+				}
+				else if (strpos("1234567890", strlwr(%c)) < 0)
+				{
+					%n = -1;
+					break;
+				}
+				else if (%readChars && %lastSpace)
+				{
+					%n = -2;
+					break;
+				}
+				else
+				{
+					%readChars = true;
+				}
+			}
+
+			// Found errors
+			if (%n < 0)
+			{
+				if (%n == -1)
+					call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
+				else if (%n == -2)
+					call(%error, "Parse Error: Index cannot contain whitespace on line " @ %line);
+				%list.error = true;
+				return %list;
+			}
+			else if (%n >= %len)
+			{
+				call(%error, "Parse Error: Missing index ending delimiter ] on line " @ %line);
+				%list.error = true;
+				return %list;
+			}
+
+			%data = trim(getSubStr(%script, %i, %n - %i));
+
+			%i = %n;
+
+			if (%c $= ",")
+			{
+				if (%indexTableType[%indexTableCount] == 1)
+				{
+					%n = -1;
+				}
+				else if (%data $= "")
+				{
+					%n = -2;
+				}
+				else
+				{
+					%indexTableType[%indexTableCount] = 0;
+					%indexTableList[%indexTableCount, %indexTableListCount[%indexTableCount]] = %data;
+					%indexTableListCount[%indexTableCount]++;
+				}
+
+			}
+			else if (%c $= ":")
+			{
+				if (%indexTableType[%indexTableCount] == 0)
+				{
+					%n = -1;
+				}
+				else
+				{
+					%indexTableType[%indexTableCount] = 1;
+					%indexTableStart[%indexTableCount] = %data;
+				}
+			}
+			else if (%c $= "]")
+			{
+				if (%indexTableType[%indexTableCount] == -1 || (%indexTableType[%indexTableCount] != 1 && %data $= ""))
+				{
+					%n = -2;
+				}
+				else if (%indexTableType[%indexTableCount] == 0)
+				{
+					%indexTableList[%indexTableCount, %indexTableListCount[%indexTableCount]] = %data;
+					%indexTableListCount[%indexTableCount]++;
+				}
+				else if (%indexTableType[%indexTableCount] == 1)
+				{
+					%indexTableEnd[%indexTableCount] = %data;
+				}
+
+				if (%n >= 0)
+				{
+					// Finished, so lets find next and get out of here
+					for (%n = %i + 1; %n < %len; %n++)
+					{
+						%c = getSubStr(%script, %n, 1);
+
+						if (strpos(" \t\n", %c) >= 0)
+						{
+							if (%c $= "\n")
+								%line++;
+						}
+						else if (%c $= "," || %c $= ")")
+						{
+							break;
+						}
+						else
+						{
+							%n = -1;
+							break;
+						}
+					}
+				}
+
+				if (%c $= ",")
+				{
+					%state = 3;
+				}
+				else if (%c $= ")")
+				{
+					%state = 0;
+					// Finished events
+					%list.count++;
+				}
+
+				%indexTableCount++;
+			}
+
+			// Found errors
+			if (%n < 0)
+			{
+				if (%n == -1)
+					call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
+				else if (%n == -2)
+					call(%error, "Parse Error: Empty index found on line " @ %line);
+				%list.error = true;
+				return %list;
+			}
+			else if (%n >= %len)
+			{
+				call(%error, "Parse Error: Missing index ending delimiter ] on line " @ %line);
+				%list.error = true;
+				return %list;
+			}
+			
+			%i = %n;
 		}
 	}
 
@@ -648,6 +827,61 @@ function EventScript_fromScript(%script, %error)
 	{
 		call(%error, "Parse Error: Unfinished event on line " @ %line);
 		%list.error = true;
+	}
+
+	// PASS 2
+	// Parse parameters individually
+
+	for (%i = 0; %i < %indexTableCount; %i++)
+	{
+		%line = %indexTableLine[%i];
+		%index = %indexTableIndex[%i];
+		%param = %indexTableParam[%i];
+
+		switch (%indexTableType[%i])
+		{
+		// Indexing
+		case 0:
+
+			%params = "";
+			for (%n = 0; %n < %indexTableListCount[%i]; %n++)
+			{
+				%var = setWord(%params, %n, %indexTableList[%i, %n]);
+				%params = mClamp(, 0, %list.count - 1);
+			}
+
+			%list.value[%index, "params"] = setField(%list.value[%index, "params"], %param, %params);
+
+		// Range
+		case 1:
+
+			%start = %indexTableStart[%i];
+			%end = %indexTableEnd[%i];
+
+			// Default values
+			if (%start $= "")
+				%start = 0;
+			if (%end $= "")
+				%end = %list.count - 1;
+
+			%start = mClamp(%start, 0, %list.count - 1);
+			%end = mClamp(%end, 0, %list.count - 1);
+
+			// Incorrect indexing order
+			if (%start > %end)
+			{
+				call(%error, "Logic Error: Invalid indexing values [" @ %start @ ":" @ %end @ "] on line " @ %line);
+				%list.error = true;
+				return %list;
+			}
+
+			%params = "";
+			%n = -1;
+			for (%m = %start; %m <= %end; %m++)
+				%params = setWord(%params, %n++, %m);
+
+			%list.value[%index, "params"] = setField(%list.value[%index, "params"], %param, %params);
+		}
 	}
 
 	return %list;
