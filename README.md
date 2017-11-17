@@ -9,25 +9,31 @@ This mod will ease this issue by introducing a new scripting language called Eve
 ### Examples
 
 ```
-# Normal event
-[x][33]onActivate->Self->fireRelayNum("1-5 5 7", "Brick")
+# Author: Platypi / SadBlobfish
+# Makes a brick change colors on a loop when toggled
 
-# Disabled and delay with no params
-[ ][500]onBlownUp->Player->Kill
-[x][  0]onRelay->Self->fakeKillBrick("5 10 3.4", 2)
+# Start color changing (start with events enabled)
+[x][0]onActivate->Self->playSound("Beep_Checkout.wav")
+[x][33]onActivate->Self->fireRelay
 
-# Separate lines
-[x][56]onRelay
-    ->Self
-    ->setColor(
-        "0.000000 0.000000 1.000000 1.000000"
-    )
+# Stop color changing (start with events disabled)
+[ ][0]onActivate->Self->playSound("Beep_Denied.wav")
+[ ][0]onActivate->Self->cancelEvents
 
-# Default behavior
-onRelay -> "test_brick" -> setColliding (1)
-setApartment -> And -> setOwner (9845)
-onProjectileHit -> Projectile -> Bounce (1.3)
-[]onActivate -> Self -> setVehicle("Jeep ")
+# Alternate between starting and stopping color changing
+[x][0]onActivate->Self->toggleEventEnabled("0 1 2 3")
+
+# Change colors
+[x][0]onRelay->Self->setColor("0.898039 0.000000 0.000000 1.000000")
+[x][500]onRelay->Self->setColor("0.898039 0.898039 0.000000 1.000000")
+[x][1000]onRelay->Self->setColor("0.000000 0.498039 0.247059 1.000000")
+[x][1500]onRelay->Self->setColor("0.200000 0.000000 0.800000 1.000000")
+
+# Loop color changing
+[2000]onRelay->Self->fireRelay
+
+# Stop color changing when brick is blown up
+onBlownUp->Self->cancelEvents
 ```
 
 ## Installation
