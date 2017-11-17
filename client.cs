@@ -164,7 +164,7 @@ function EventScriptClient_load(%script)
 		// Invalid
 		if (%inputEventIdx $= -1)
 		{
-			EventScriptClient_error("Error :: Invalid input event \"" @ %inputEventName @"\" on line " @ %line);
+			EventScriptClient_error("Error :: Invalid input event \"" @ %inputEventName @ "\" on line " @ %line);
 			%event.getObject(%n).setSelected(-1);
 			$WrenchEventLoading = 0;
 			wrenchEventsDlg.newEvent();
