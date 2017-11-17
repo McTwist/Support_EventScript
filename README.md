@@ -21,7 +21,7 @@ This mod will ease this issue by introducing a new scripting language called Eve
 [ ][0]onActivate->Self->cancelEvents
 
 # Alternate between starting and stopping color changing
-[x][0]onActivate->Self->toggleEventEnabled("0 1 2 3")
+[x][0]onActivate->Self->toggleEventEnabled([0:3])
 
 # Change colors
 [x][0]onRelay->Self->setColor("0.898039 0.000000 0.000000 1.000000")
