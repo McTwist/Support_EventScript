@@ -32,12 +32,14 @@ function EventScript_fromScript(%script, %error)
 	for (%i = 0; %i < %len; %i++)
 	{
 		%char = getSubStr(%script, %i, 1);
-		// Increase line
-		if (%char $= "\n")
-			%line++;
 		// Skip white spaces
-		if (strpos(" \t\r\n", %char) >= 0)
+		if (strpos(" \t\n", %char) >= 0)
+		{
+			// Increase line
+			if (%char $= "\n")
+				%line++;
 			continue;
+		}
 
 		switch (%state)
 		{
@@ -47,18 +49,98 @@ function EventScript_fromScript(%script, %error)
 			{
 			// Comment
 			case "#":
+
 				%n = strpos(%script, "\n", %i);
 				%i = (%n < 0) ? %len : %n;
 				%line++;
+
 			// Enabled / Delay
 			case "[":
-				%n = strpos(%script, "]", %i);
+
+				// Update line found
+				if (%list.value[%list.count, "line"] $= "")
+					%list.value[%list.count, "line"] = %line;
+
+				%enabled = "";
+				%readChars = false;
+				%lastSpace = false;
+
+				// Verify characters
+				for (%n = %i + 1; %n < %len; %n++)
+				{
+					%c = getSubStr(%script, %n, 1);
+
+					if (strpos(" \t\n", %c) >= 0)
+					{
+						if (%readChars)
+							%lastSpace = true;
+						if (%c $= "\n")
+							%line++;
+					}
+					else if (%c $= "]")
+					{
+						break;
+					}
+					else if (%readChars && %lastSpace)
+					{
+						%n = -1;
+						break;
+					}
+					else if (strpos("1234567890", %c) < 0)
+					{
+						if (strlwr(%c) !$= "x" || %enabled !$= "" || %readChars)
+						{
+							%n = -1;
+							break;
+						}
+						// Only allow one box with enabled
+						else if (%list.value[%list.count, "enabled"] !$= "")
+						{
+							%n = -2;
+							break;
+						}
+						else
+						{
+							%enabled = true;
+						}
+					}
+					else if (%enabled !$= "")
+					{
+						%n = -1;
+						break;
+					}
+					// Only allow one box with delay
+					else if (%list.value[%list.count, "delay"] !$= "")
+					{
+						%n = -3;
+						break;
+					}
+					else
+					{
+						%readChars = true;
+					}
+				}
+
+				// Found errors
 				if (%n < 0)
 				{
-					call(%error, "Parse Error: Missing ending delimeter ] on line " @ %line);
+					if (%n == -1)
+						call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
+					else if (%n == -2)
+						call(%error, "Parse Error: Only one enabled allowed per event on line " @ %line);
+					else if (%n == -3)
+						call(%error, "Parse Error: Only one delay allowed per event on line " @ %line);
 					%list.error = true;
 					return %list;
 				}
+				else if (%n >= %len)
+				{
+					call(%error, "Parse Error: Missing ending delimiter ] on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+
+				// Get actual values
 				%data = trim(getSubStr(%script, %i+1, %n - (%i+1)));
 				// Enabled
 				if (strlwr(%data) $= "x")
@@ -75,20 +157,72 @@ function EventScript_fromScript(%script, %error)
 				{
 					%list.value[%list.count, "delay"] = atoi(%data);
 				}
-				if (%list.value[%list.count, "line"] $= "")
-					%list.value[%list.count, "line"] = %line;
+
 				%i = %n;
+
 			// Input event
 			default:
-				%n = strpos(%script, "->", %i);
+
+				%startLine = %line;
+				%readChars = false;
+				%lastSpace = false;
+
+				// Verify characters
+				for (%n = %i + 1; %n < %len; %n++)
+				{
+					%c = getSubStr(%script, %n, 1);
+
+					if (strpos(" \t\n", %c) >= 0)
+					{
+						if (%readChars)
+							%lastSpace = true;
+						if (%c $= "\n")
+							%line++;
+					}
+					else if (%c $= "-" && getSubStr(%script, %n, 2) $= "->")
+					{
+						break;
+					}
+					else if (strpos("1234567890abcdefghijklmnopqrstuvwxyz_", strlwr(%c)) < 0)
+					{
+						%n = -1;
+						break;
+					}
+					else if (%readChars && %lastSpace)
+					{
+						%n = -2;
+						break;
+					}
+					else
+					{
+						%readChars = true;
+					}
+				}
+
+				// Found errors
 				if (%n < 0)
 				{
-					call(%error, "Parse Error: Missing input delimeter -> on line " @ %line);
+					if (%n == -1)
+						call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
+					else if (%n == -2)
+						call(%error, "Parse Error: Input event containing spaces on line " @ %line);
 					%list.error = true;
 					return %list;
 				}
+				else if (%n >= %len)
+				{
+					call(%error, "Parse Error: Missing input operator -> on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+
+				// Update line found
+				if (%list.value[%list.count, "line"] $= "")
+					%list.value[%list.count, "line"] = %startLine;
+
 				%data = trim(getSubStr(%script, %i, %n - %i));
 				%list.value[%list.count, "inputEventName"] = %data;
+
 				%i = %n + 1;
 				%state = 1;
 
@@ -100,101 +234,28 @@ function EventScript_fromScript(%script, %error)
 				if (%list.value[%list.count, "line"] $= "")
 					%list.value[%list.count, "line"] = %line;
 			}
+
 		// Target
 		case 1:
+
 			switch$ (%char)
 			{
 			// Named target
 			case "\"":
-				%n = strpos(%script, "\"", %i+1);
-				if (%n < 0)
-				{
-					call(%error, "Parse Error: Missing ending delimeter \" on line " @ %line);
-					%list.error = true;
-					return %list;
-				}
-				%data = getSubStr(%script, %i+1, %n - (%i+1));
-				%list.value[%list.count, "NTName"] = %data;
 
-				%i = %n;
-
-				%n = strpos(%script, "->", %i);
-				if (%n < 0)
-				{
-					call(%error, "Parse Error: Missing target delimeter -> on line " @ %line);
-					%list.error = true;
-					return %list;
-				}
-				%i = %n + 1;
-				%state = 2;
-			// Default target
-			default:
-				%n = strpos(%script, "->", %i);
-				if (%n < 0)
-				{
-					call(%error, "Parse Error: Missing target delimeter -> on line " @ %line);
-					%list.error = true;
-					return %list;
-				}
-				%data = trim(getSubStr(%script, %i, %n - %i));
-				%list.value[%list.count, "targetName"] = %data;
-				%i = %n + 1;
-				%state = 2;
-			}
-		// Output
-		case 2:
-			%s = strpos(%script, "\n", %i);
-			%n = strpos(%script, "(", %i);
-
-			// Got both
-			if (%s >= 0 && %n >= 0)
-			{
-				// Paranthesis is before newline
-				if (%s > %n)
-				{
-					%state = 3;
-				}
-				// Newline is before paranthesis
-				else
-				{
-					%n = %s;
-					%state = 0;
-				}
-			}
-			// Got paranthesis
-			else if (%n >= 0)
-			{
-				%state = 3;
-			}
-			// Got none or newline
-			else
-			{
-				%n = (%s >= 0) ? %s : %len;
-				%state = 0;
-			}
-			%data = trim(getSubStr(%script, %i, %n - %i));
-			%list.value[%list.count, "outputEventName"] = %data;
-
-			%i = %n;
-			// New events
-			if (%state == 0)
-				%list.count++;
-		// Param
-		case 3:
-			switch$ (%char)
-			{
-			// End
-			case ")":
-				%list.count++;
-				%state = 0;
-			// String
-			case "\"":
 				// Locate end of string
 				%escape = false;
 				for (%n = %i + 1; %n < %len; %n++)
 				{
 					%c = getSubStr(%script, %n, 1);
-					if (%escape)
+
+					if (%c $= "\n")
+					{
+						%line++;
+						%n = -1;
+						break;
+					}
+					else if (%escape)
 					{
 						%escape = false;
 					}
@@ -208,106 +269,385 @@ function EventScript_fromScript(%script, %error)
 					}
 				}
 
+				// Found errors
+				if (%n < 0)
+				{
+					call(%error, "Parse Error: Newline in strings not supported on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+				else if (%n >= %len)
+				{
+					call(%error, "Parse Error: Missing ending delimiter \" on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+
+				%data = getSubStr(%script, %i+1, %n - (%i+1));
+				%data = strReplace(%data, "\\\"", "\"");
+				%data = strReplace(%data, "\\\\", "\\");
+				%list.value[%list.count, "NTName"] = %data;
+
+				%i = %n;
+
+				for (%n = %i + 1; %n < %len; %n++)
+				{
+					%c = getSubStr(%script, %n, 1);
+
+					if (strpos(" \t\n", %c) >= 0)
+					{
+						if (%c $= "\n")
+							%line++;
+					}
+					else if (%c $= "-" && getSubStr(%script, %n, 2) $= "->")
+					{
+						break;
+					}
+					else
+					{
+						%n = -1;
+						break;
+					}
+				}
+
+				// Found errors
+				if (%n < 0)
+				{
+					call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+				else if (%n >= %len)
+				{
+					call(%error, "Parse Error: Missing target operator -> on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+
+				%i = %n + 1;
+				%state = 2;
+
+			// Default target
+			default:
+
+				%readChars = false;
+				%lastSpace = false;
+
+				// Verify characters
+				for (%n = %i + 1; %n < %len; %n++)
+				{
+					%c = getSubStr(%script, %n, 1);
+
+					if (strpos(" \t\n", %c) >= 0)
+					{
+						if (%readChars)
+							%lastSpace = true;
+						if (%c $= "\n")
+							%line++;
+					}
+					else if (%c $= "-" && getSubStr(%script, %n, 2) $= "->")
+					{
+						break;
+					}
+					else if (strpos("1234567890abcdefghijklmnopqrstuvwxyz_", strlwr(%c)) < 0)
+					{
+						%n = -1;
+						break;
+					}
+					else if (%readChars && %lastSpace)
+					{
+						%n = -2;
+						break;
+					}
+					else
+					{
+						%readChars = true;
+					}
+				}
+
+				// Found errors
+				if (%n < 0)
+				{
+					if (%n == -1)
+						call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
+					else if (%n == -2)
+						call(%error, "Parse Error: Target name containing spaces on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+				else if (%n >= %len)
+				{
+					call(%error, "Parse Error: Missing target operator -> on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+
+				%data = trim(getSubStr(%script, %i, %n - %i));
+				%list.value[%list.count, "targetName"] = %data;
+
+				%i = %n + 1;
+				%state = 2;
+			}
+
+		// Output
+		case 2:
+
+			%readChars = false;
+			%lastSpace = false;
+
+			// Verify characters
+			for (%n = %i + 1; %n < %len; %n++)
+			{
+				%c = getSubStr(%script, %n, 1);
+
+				if (strpos(" \t\n", %c) >= 0)
+				{
+					if (%readChars)
+						%lastSpace = true;
+					if (%c $= "\n")
+					{
+						%line++;
+						if (%readChars)
+							break;
+					}
+				}
+				else if (%c $= "(")
+				{
+					break;
+				}
+				else if (strpos("1234567890abcdefghijklmnopqrstuvwxyz_", strlwr(%c)) < 0)
+				{
+					%n = -1;
+					break;
+				}
+				else if (%readChars && %lastSpace)
+				{
+					%n = -2;
+					break;
+				}
+				else
+				{
+					%readChars = true;
+				}
+			}
+
+			// Found errors
+			if (%n < 0)
+			{
+				if (%n == -1)
+					call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
+				else if (%n == -2)
+					call(%error, "Parse Error: Output event containing spaces on line " @ %line);
+				%list.error = true;
+				return %list;
+			}
+
+			%data = trim(getSubStr(%script, %i, %n - %i));
+			%list.value[%list.count, "outputEventName"] = %data;
+
+			%i = %n;
+
+			// Change state
+			if (%n >= %len || %c $= "\n")
+			{
+				%state = 0;
+				// Finished event
+				%list.count++;
+			}
+			else if (%c $= "(")
+			{
+				%state = 3;
+			}
+
+		// Param
+		case 3:
+
+			switch$ (%char)
+			{
+			// End
+			case ")":
+			
+				%list.count++;
+				%state = 0;
+
+			// String
+			case "\"":
+
+				// Locate end of string
+				%escape = false;
+				for (%n = %i + 1; %n < %len; %n++)
+				{
+					%c = getSubStr(%script, %n, 1);
+
+					if (%c $= "\n")
+					{
+						%line++;
+						%n = -1;
+						break;
+					}
+					else if (%escape)
+					{
+						%escape = false;
+					}
+					else if (%c $= "\\")
+					{
+						%escape = true;
+					}
+					else if (%c $= "\"")
+					{
+						break;
+					}
+				}
+
+				// Found errors
+				if (%n < 0)
+				{
+					call(%error, "Parse Error: Newline in strings not supported on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+				else if (%n >= %len)
+				{
+					call(%error, "Parse Error: Missing ending delimiter \" on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+
 				%data = getSubStr(%script, %i+1, %n - (%i+1));
 				%data = strReplace(%data, "\\\"", "\"");
 				%data = strReplace(%data, "\\\\", "\\");
 
-				%list.value[%list.count, "params"] =
-					(%list.value[%list.count, "params"] !$= "")
-					? %list.value[%list.count, "params"] TAB %data
-					: %data;
+				// Append list (Dependency)
+				%list.value[%list.count, "params"] = pushBack(%list.value[%list.count, "params"], %data, "\t");
 
 				%i = %n;
 
-				// Locate the end
-				%s = strpos(%script, ",", %i);
-				%n = strpos(%script, ")", %i);
-
-				// Got both
-				if (%s >= 0 && %n >= 0)
+				for (%n = %i + 1; %n < %len; %n++)
 				{
-					// Paranthesis is before comma
-					if (%s > %n)
+					%c = getSubStr(%script, %n, 1);
+
+					if (strpos(" \t\n", %c) >= 0)
 					{
-						%state = 0;
+						if (%c $= "\n")
+							%line++;
 					}
-					// Comma is before paranthesis
+					else if (%c $= "," || %c $= ")")
+					{
+						break;
+					}
 					else
 					{
-						%n = %s;
+						%n = -1;
+						break;
 					}
 				}
-				// Got paranthesis
-				else if (%n >= 0)
+
+				// Found errors
+				if (%n < 0)
 				{
-					%state = 0;
-				}
-				// Got comma
-				else if (%s >= 0)
-				{
-					%n = %s;
-				}
-				// Got none
-				else
-				{
-					call(%error, "Parse Error: Missing paranthesis delimeter ) on line " @ %line);
+					call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
 					%list.error = true;
 					return %list;
 				}
+				else if (%n >= %len)
+				{
+					call(%error, "Parse Error: Missing parameter ending delimiter ) on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+
 				%i = %n;
-				// New events
-				if (%state == 0)
+
+				// Change state
+				if (%c $= ")")
+				{
+					%state = 0;
+					// Finished events
 					%list.count++;
+				}
 
 			// Number / Boolean / Naked string
 			default:
-				%s = strpos(%script, ",", %i);
-				%n = strpos(%script, ")", %i);
 
-				// Got both
-				if (%s >= 0 && %n >= 0)
+				%readChars = false;
+				%lastSpace = false;
+
+				// Verify characters
+				for (%n = %i + 1; %n < %len; %n++)
 				{
-					// Paranthesis is before comma
-					if (%s > %n)
+					%c = getSubStr(%script, %n, 1);
+
+					if (strpos(" \t\n", %c) >= 0)
 					{
-						%state = 0;
+						if (%c $= "\n")
+						{
+							%line++;
+							if (%readChars)
+								%lastSpace = true;
+						}
 					}
-					// Comma is before paranthesis
+					else if (%c $= "," || %c $= ")")
+					{
+						break;
+					}
+					else if (strpos("1234567890abcdefghijklmnopqrstuvwxyz_-+.", strlwr(%c)) < 0)
+					{
+						%n = -1;
+						break;
+					}
+					else if (%readChars && %lastSpace)
+					{
+						%n = -2;
+						break;
+					}
 					else
 					{
-						%n = %s;
+						%readChars = true;
 					}
 				}
-				// Got paranthesis
-				else if (%n >= 0)
+
+				// Found errors
+				if (%n < 0)
 				{
-					%state = 0;
-				}
-				// Got comma
-				else if (%s >= 0)
-				{
-					%n = %s;
-				}
-				// Got none
-				else
-				{
-					call(%error, "Parse Error: Missing paranthesis delimeter ) on line " @ %line);
+					if (%n == -1)
+						call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
+					else if (%n == -2)
+						call(%error, "Parse Error: Parameter containing newline on line " @ %line);
 					%list.error = true;
 					return %list;
 				}
+				else if (%n >= %len)
+				{
+					call(%error, "Parse Error: Missing parameter ending delimiter ) on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+
 				%data = trim(getSubStr(%script, %i, %n - %i));
 
-				%list.value[%list.count, "params"] =
-					(%list.value[%list.count, "params"] !$= "")
-					? %list.value[%list.count, "params"] TAB %data
-					: %data;
+				// Append list (Dependency)
+				%list.value[%list.count, "params"] = pushBack(%list.value[%list.count, "params"], %data, "\t");
 
 				%i = %n;
-				// New events
-				if (%state == 0)
+
+				// Change state
+				if (%c $= ")")
+				{
+					%state = 0;
+					// Finished events
 					%list.count++;
+				}
 			}
 		}
+	}
+
+	// Handle ending errors
+	if (%state != 0
+		|| %list.value[%list.count, "enabled"] !$= ""
+		|| %list.value[%list.count, "delay"] !$= "")
+	{
+		call(%error, "Parse Error: Unfinished event on line " @ %line);
+		%list.error = true;
 	}
 
 	return %list;
