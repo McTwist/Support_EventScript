@@ -354,7 +354,7 @@ function EventScript_fromScript(%script, %error)
 					{
 						break;
 					}
-					else if (strpos("1234567890abcdefghijklmnopqrstuvwxyz_", strlwr(%c)) < 0)
+					else if (strpos("1234567890abcdefghijklmnopqrstuvwxyz_()-", strlwr(%c)) < 0)
 					{
 						%n = -1;
 						break;
