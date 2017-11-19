@@ -13,15 +13,17 @@ This mod will ease this issue by introducing a new scripting language called Eve
 # Makes a brick change colors on a loop when toggled
 
 # Start color changing (start with events enabled)
+start:
 [x][0]onActivate->Self->playSound("Beep_Checkout.wav")
 [x][33]onActivate->Self->fireRelay
 
 # Stop color changing (start with events disabled)
 [ ][0]onActivate->Self->playSound("Beep_Denied.wav")
+end:
 [ ][0]onActivate->Self->cancelEvents
 
 # Alternate between starting and stopping color changing
-[x][0]onActivate->Self->toggleEventEnabled([0:3])
+[x][0]onActivate->Self->toggleEventEnabled([start:end])
 
 # Change colors
 [x][0]onRelay->Self->setColor("0.898039 0.000000 0.000000 1.000000")
