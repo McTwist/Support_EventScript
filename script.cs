@@ -847,7 +847,7 @@ function EventScript_fromScript(%script, %error)
 			for (%n = 0; %n < %indexTableListCount[%i]; %n++)
 			{
 				%var = setWord(%params, %n, %indexTableList[%i, %n]);
-				%params = mClamp(, 0, %list.count - 1);
+				%params = mClamp(%var, 0, %list.count - 1);
 			}
 
 			%list.value[%index, "params"] = setField(%list.value[%index, "params"], %param, %params);
