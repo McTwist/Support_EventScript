@@ -610,7 +610,6 @@ function EventScript_fromScript(%script, %error)
 				%indexTableLine[%indexTableCount] = %line;
 				%indexTableIndex[%indexTableCount] = %list.count;
 				%indexTableParam[%indexTableCount] = getFieldCount(%list.value[%list.count, "param"]);
-				%indexTableType[%indexTableCount] = -1;
 				%indexTableListCount[%indexTableCount] = 0;
 
 				%state = 4;
@@ -749,60 +748,57 @@ function EventScript_fromScript(%script, %error)
 
 			%data = trim(getSubStr(%script, %i, %n - %i));
 
+			%currentListCount = %indexTableListCount[%indexTableCount];
+			%indexTableListLabel[%indexTableCount, %currentListCount] = %isLabel;
+			%indexTableList[%indexTableCount, %currentListCount] = %data;
+			%indexTableListCount[%indexTableCount]++;
+
 			%i = %n;
 
 			if (%c $= ",")
 			{
-				if (%indexTableType[%indexTableCount] == 1)
-				{
-					%n = -1;
-				}
-				else if (%data $= "")
+				// Empty index
+				if (%data $= ""
+					&& (%indexTableListCount[%indexTableCount] == 0
+						|| %indexTableType[%indexTableCount, %currentListCount - 1] == 0))
 				{
 					%n = -2;
 				}
 				else
 				{
-					%indexTableType[%indexTableCount] = 0;
-					%indexTableListLabel[%indexTableCount, %indexTableListCount[%indexTableCount]] = %isLabel;
-					%indexTableList[%indexTableCount, %indexTableListCount[%indexTableCount]] = %data;
-					%indexTableListCount[%indexTableCount]++;
+					%indexTableType[%indexTableCount, %currentListCount] = 0;
 				}
 
+				%currentListCount++;
 			}
 			else if (%c $= ":")
 			{
-				if (%indexTableType[%indexTableCount] == 0)
+				// Already got a range
+				if (%currentListCount > 0
+					&& %indexTableType[%indexTableCount, %currentListCount - 1] == 1)
 				{
-					%n = -1;
+					%n = -3;
 				}
 				else
 				{
-					%indexTableType[%indexTableCount] = 1;
-					%indexTableStartLabel[%indexTableCount] = %isLabel;
-					%indexTableStart[%indexTableCount] = %data;
+					%indexTableType[%indexTableCount, %currentListCount] = 1;
 				}
+
+				%currentListCount++;
 			}
 			else if (%c $= "]")
 			{
-				if (%indexTableType[%indexTableCount] == -1 || (%indexTableType[%indexTableCount] != 1 && %data $= ""))
+				// Empty index
+				if (%data $= ""
+					&& (%currentListCount == 0
+						|| %indexTableType[%indexTableCount, %currentListCount - 1] == 0))
 				{
 					%n = -2;
 				}
-				else if (%indexTableType[%indexTableCount] == 0)
+				else
 				{
-					%indexTableListLabel[%indexTableCount, %indexTableListCount[%indexTableCount]] = %isLabel;
-					%indexTableList[%indexTableCount, %indexTableListCount[%indexTableCount]] = %data;
-					%indexTableListCount[%indexTableCount]++;
-				}
-				else if (%indexTableType[%indexTableCount] == 1)
-				{
-					%indexTableEndLabel[%indexTableCount] = %isLabel;
-					%indexTableEnd[%indexTableCount] = %data;
-				}
+					%indexTableType[%indexTableCount, %currentListCount] = 0;
 
-				if (%n >= 0)
-				{
 					// Finished, so lets find next and get out of here
 					for (%n = %i + 1; %n < %len; %n++)
 					{
@@ -823,20 +819,20 @@ function EventScript_fromScript(%script, %error)
 							break;
 						}
 					}
-				}
 
-				if (%c $= ",")
-				{
-					%state = 3;
-				}
-				else if (%c $= ")")
-				{
-					%state = 0;
-					// Finished events
-					%list.count++;
-				}
+					if (%c $= ",")
+					{
+						%state = 3;
+					}
+					else if (%c $= ")")
+					{
+						%state = 0;
+						// Finished events
+						%list.count++;
+					}
 
-				%indexTableCount++;
+					%indexTableCount++;
+				}
 			}
 
 			// Found errors
@@ -846,6 +842,8 @@ function EventScript_fromScript(%script, %error)
 					call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
 				else if (%n == -2)
 					call(%error, "Parse Error: Empty index found on line " @ %line);
+				else if (%n == -3)
+					call(%error, "Parse Error: Ranges allow only two values on line " @ %line);
 				%list.error = true;
 				return %list;
 			}
@@ -855,7 +853,7 @@ function EventScript_fromScript(%script, %error)
 				%list.error = true;
 				return %list;
 			}
-			
+
 			%i = %n;
 		}
 	}
@@ -878,94 +876,64 @@ function EventScript_fromScript(%script, %error)
 		%index = %indexTableIndex[%i];
 		%param = %indexTableParam[%i];
 
-		switch (%indexTableType[%i])
+		%params = "";
+
+		%l = -1;
+		for (%n = 0; %n < %indexTableListCount[%i]; %n++)
 		{
-		// Indexing
-		case 0:
-
-			%params = "";
-			for (%n = 0; %n < %indexTableListCount[%i]; %n++)
-			{
-				%var = %indexTableList[%i, %n];
-
-				// Handle labels
-				if (%indexTableListLabel[%i, %n])
-				{
-					if (%labelTable[%var] !$= "")
-					{
-						%var = %labelTable[%var];
-					}
-					else
-					{
-						call(%error, "Parser Error: Label \"" @ %var @ "\" does not exist on line " @ %line);
-						%list.error = true;
-						return %list;
-					}
-				}
-
-				%var = mClamp(%var, 0, %list.count - 1);
-				%params = setWord(%params, %n, %var);
-			}
-
-			%list.value[%index, "params"] = setField(%list.value[%index, "params"], %param, %params);
-
-		// Range
-		case 1:
-
-			%start = %indexTableStart[%i];
-			%end = %indexTableEnd[%i];
+			%var = %indexTableList[%i, %n];
 
 			// Handle labels
-			if (%indexTableStartLabel[%i])
+			if (%indexTableListLabel[%i, %n])
 			{
-				if (%labelTable[%start] !$= "")
+				if (%labelTable[%var] $= "")
 				{
-					%start = %labelTable[%start];
-				}
-				else
-				{
-					call(%error, "Parser Error: Label \"" @ %start @ "\" does not exist on line " @ %line);
+					call(%error, "Parser Error: Label \"" @ %var @ "\" does not exist on line " @ %line);
 					%list.error = true;
 					return %list;
 				}
+
+				%var = %labelTable[%var];
 			}
-			if (%indexTableEndLabel[%i])
+
+			// Default value
+			if (%indexTableType[%i, %n] == 2 && %var $= "")
+				%var = %list.count - 1;
+			else if (%var $= "")
+				%var = 0;
+
+			%var = mClamp(%var, 0, %list.count - 1);
+
+			switch (%indexTableType[%i, %n])
 			{
-				if (%labelTable[%end] !$= "")
+			// Indexing
+			case 0:
+
+				%params = setWord(%params, %l++, %var);
+
+			// Range start
+			case 1:
+
+				%start = %var;
+				%indexTableType[%i, %n+1] = 2;
+
+			// Range ends
+			case 2:
+
+				// Incorrect indexing order
+				if (%start > %var)
 				{
-					%end = %labelTable[%end];
-				}
-				else
-				{
-					call(%error, "Parser Error: Label \"" @ %end @ "\" does not exist on line " @ %line);
+					call(%error, "Logic Error: Invalid indexing values " @ %start @ ":" @ %var @ " on line " @ %line);
 					%list.error = true;
 					return %list;
 				}
+
+				for (%m = %start; %m <= %var; %m++)
+					%params = setWord(%params, %l++, %m);
 			}
-			// Default values
-			if (%start $= "")
-				%start = 0;
-			if (%end $= "")
-				%end = %list.count - 1;
-
-			%start = mClamp(%start, 0, %list.count - 1);
-			%end = mClamp(%end, 0, %list.count - 1);
-
-			// Incorrect indexing order
-			if (%start > %end)
-			{
-				call(%error, "Logic Error: Invalid indexing values [" @ %start @ ":" @ %end @ "] on line " @ %line);
-				%list.error = true;
-				return %list;
-			}
-
-			%params = "";
-			%n = -1;
-			for (%m = %start; %m <= %end; %m++)
-				%params = setWord(%params, %n++, %m);
-
-			%list.value[%index, "params"] = setField(%list.value[%index, "params"], %param, %params);
 		}
+
+		%list.value[%index, "params"] = setField(%list.value[%index, "params"], %param, %params);
 	}
 
 	return %list;
