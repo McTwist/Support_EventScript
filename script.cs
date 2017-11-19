@@ -184,6 +184,12 @@ function EventScript_fromScript(%script, %error)
 						if (%c $= "\n")
 							%line++;
 					}
+					else if (%c $= ":"
+						&& %list.value[%list.count, "enabled"] $= ""
+						&& %list.value[%list.count, "delay"] $= "")
+					{
+						break;
+					}
 					else if (%c $= "-" && getSubStr(%script, %n, 2) $= "->")
 					{
 						break;
@@ -228,23 +234,42 @@ function EventScript_fromScript(%script, %error)
 					return %list;
 				}
 
-				// Update line found
-				if (%list.value[%list.count, "line"] $= "")
-					%list.value[%list.count, "line"] = %startLine;
-
 				%data = trim(getSubStr(%script, %i, %n - %i));
-				%list.value[%list.count, "inputEventName"] = %data;
 
-				%i = %n + 1;
-				%state = 1;
+				// Label
+				if (%c $= ":")
+				{
+					if (%labelTable[%data] !$= "")
+					{
+						call(%error, "Parse Error: Duplicate label \"" @ %data @ "\" found on line " @ %line
+							@ ", previous found at line " @ %list.value[%labelTable[%data], "line"]);
+						%list.error = true;
+						return %list;
+					}
 
-				// Set default values
-				if (%list.value[%list.count, "enabled"] $= "")
-					%list.value[%list.count, "enabled"] = true;
-				if (%list.value[%list.count, "delay"] $= "")
-					%list.value[%list.count, "delay"] = 0;
-				if (%list.value[%list.count, "line"] $= "")
-					%list.value[%list.count, "line"] = %line;
+					%labelTable[%data] = %list.count;
+					%i = %n;
+				}
+				// Input event
+				else
+				{
+					// Update line found
+					if (%list.value[%list.count, "line"] $= "")
+						%list.value[%list.count, "line"] = %startLine;
+
+					%list.value[%list.count, "inputEventName"] = %data;
+
+					%i = %n + 1;
+					%state = 1;
+
+					// Set default values
+					if (%list.value[%list.count, "enabled"] $= "")
+						%list.value[%list.count, "enabled"] = true;
+					if (%list.value[%list.count, "delay"] $= "")
+						%list.value[%list.count, "delay"] = 0;
+					if (%list.value[%list.count, "line"] $= "")
+						%list.value[%list.count, "line"] = %line;
+				}
 			}
 
 		// Target
@@ -685,7 +710,7 @@ function EventScript_fromScript(%script, %error)
 				{
 					break;
 				}
-				else if (strpos("1234567890", strlwr(%c)) < 0)
+				else if (strpos("1234567890abcdefghijklmnopqrstuvwxyz_", strlwr(%c)) < 0)
 				{
 					%n = -1;
 					break;
@@ -853,8 +878,14 @@ function EventScript_fromScript(%script, %error)
 			%params = "";
 			for (%n = 0; %n < %indexTableListCount[%i]; %n++)
 			{
-				%var = setWord(%params, %n, %indexTableList[%i, %n]);
-				%params = mClamp(%var, 0, %list.count - 1);
+				%var = %indexTableList[%i, %n];
+
+				// Handle labels
+				if (%labelTable[%var] !$= "")
+					%var = %labelTable[%var];
+
+				%var = mClamp(%var, 0, %list.count - 1);
+				%params = setWord(%params, %n, %var);
 			}
 
 			%list.value[%index, "params"] = setField(%list.value[%index, "params"], %param, %params);
@@ -864,6 +895,12 @@ function EventScript_fromScript(%script, %error)
 
 			%start = %indexTableStart[%i];
 			%end = %indexTableEnd[%i];
+
+			// Handle labels
+			if (%labelTable[%start] !$= "")
+				%start = %labelTable[%start];
+			if (%labelTable[%end] !$= "")
+				%end = %labelTable[%end];
 
 			// Default values
 			if (%start $= "")
