@@ -693,6 +693,7 @@ function EventScript_fromScript(%script, %error)
 
 			%readChars = false;
 			%lastSpace = false;
+			%isLabel = false;
 
 			// Verify characters
 			for (%n = %i; %n < %len; %n++)
@@ -722,6 +723,9 @@ function EventScript_fromScript(%script, %error)
 				}
 				else
 				{
+					// Need at least one alpha character to be a proper label
+					if (strpos("1234567890", strlwr(%c)) < 0)
+						%isLabel = true;
 					%readChars = true;
 				}
 			}
@@ -760,6 +764,7 @@ function EventScript_fromScript(%script, %error)
 				else
 				{
 					%indexTableType[%indexTableCount] = 0;
+					%indexTableListLabel[%indexTableCount, %indexTableListCount[%indexTableCount]] = %isLabel;
 					%indexTableList[%indexTableCount, %indexTableListCount[%indexTableCount]] = %data;
 					%indexTableListCount[%indexTableCount]++;
 				}
@@ -774,6 +779,7 @@ function EventScript_fromScript(%script, %error)
 				else
 				{
 					%indexTableType[%indexTableCount] = 1;
+					%indexTableStartLabel[%indexTableCount] = %isLabel;
 					%indexTableStart[%indexTableCount] = %data;
 				}
 			}
@@ -785,11 +791,13 @@ function EventScript_fromScript(%script, %error)
 				}
 				else if (%indexTableType[%indexTableCount] == 0)
 				{
+					%indexTableListLabel[%indexTableCount, %indexTableListCount[%indexTableCount]] = %isLabel;
 					%indexTableList[%indexTableCount, %indexTableListCount[%indexTableCount]] = %data;
 					%indexTableListCount[%indexTableCount]++;
 				}
 				else if (%indexTableType[%indexTableCount] == 1)
 				{
+					%indexTableEndLabel[%indexTableCount] = %isLabel;
 					%indexTableEnd[%indexTableCount] = %data;
 				}
 
@@ -881,8 +889,19 @@ function EventScript_fromScript(%script, %error)
 				%var = %indexTableList[%i, %n];
 
 				// Handle labels
-				if (%labelTable[%var] !$= "")
-					%var = %labelTable[%var];
+				if (%indexTableListLabel[%i, %n])
+				{
+					if (%labelTable[%var] !$= "")
+					{
+						%var = %labelTable[%var];
+					}
+					else
+					{
+						call(%error, "Parser Error: Label \"" @ %var @ "\" does not exist on line " @ %line);
+						%list.error = true;
+						return %list;
+					}
+				}
 
 				%var = mClamp(%var, 0, %list.count - 1);
 				%params = setWord(%params, %n, %var);
@@ -897,11 +916,32 @@ function EventScript_fromScript(%script, %error)
 			%end = %indexTableEnd[%i];
 
 			// Handle labels
-			if (%labelTable[%start] !$= "")
-				%start = %labelTable[%start];
-			if (%labelTable[%end] !$= "")
-				%end = %labelTable[%end];
-
+			if (%indexTableStartLabel[%i])
+			{
+				if (%labelTable[%start] !$= "")
+				{
+					%start = %labelTable[%start];
+				}
+				else
+				{
+					call(%error, "Parser Error: Label \"" @ %start @ "\" does not exist on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+			}
+			if (%indexTableEndLabel[%i])
+			{
+				if (%labelTable[%end] !$= "")
+				{
+					%end = %labelTable[%end];
+				}
+				else
+				{
+					call(%error, "Parser Error: Label \"" @ %end @ "\" does not exist on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+			}
 			// Default values
 			if (%start $= "")
 				%start = 0;
