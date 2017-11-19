@@ -1,7 +1,7 @@
 //
 // EventScript Server
 // Author: McTwist (9845)
-// Date: 2017-11-16
+// Date: 2017-11-19
 //
 // Contains the server version of transforming an EventScript list object
 // into either readable script or usable events.
@@ -76,7 +76,7 @@ function EventScriptServer_save(%brick)
 				%param = getColorIDTable(%param);
 			}
 
-			%params = (%params !$= "") ? %params TAB %param : %param;
+			%params = setField(%params, %n, %param);
 		}
 
 		%list.value[%i, "params"] = %params;
@@ -130,7 +130,7 @@ function EventScriptServer_load(%brick, %script)
 		%inputEventIdx = inputEvent_GetInputEventIdx(%inputEventName);
 		if (%inputEventIdx < 0)
 		{
-			error("EventScriptServer_load :: Invalid input name \"" @ %inputEventName @"\" on line " @ %line);
+			error("EventScriptServer_load :: Invalid input name \"" @ %inputEventName @ "\" on line " @ %line);
 			return;
 		}
 		%brick.eventInput[%brick.numEvents] = %inputEventName;
@@ -144,7 +144,7 @@ function EventScriptServer_load(%brick, %script)
 			%NTName = "_" @ %NTName;
 			if (!isObject(%NTName))
 			{
-				error("EventScriptServer_load :: Invalid target name \"" @ %prev @"\" on line " @ %line);
+				error("EventScriptServer_load :: Invalid target name \"" @ %prev @ "\" on line " @ %line);
 				return;
 			}
 			%prev = "";
@@ -154,7 +154,7 @@ function EventScriptServer_load(%brick, %script)
 			%targetIdx = inputEvent_GetTargetIndex(fxDtsBrick, %inputEventIdx, %targetName);
 			if (%targetIdx < 0)
 			{
-				error("EventScriptServer_load :: Invalid target name \"" @ %targetName @"\" on line " @ %line);
+				error("EventScriptServer_load :: Invalid target name \"" @ %targetName @ "\" on line " @ %line);
 				return;
 			}
 		}
@@ -170,7 +170,7 @@ function EventScriptServer_load(%brick, %script)
 		%outputEventIdx = outputEvent_GetOutputEventIdx(%targetClass, %outputEventName);
 		if (%outputEventIdx < 0)
 		{
-			error("EventScriptServer_load :: Invalid output name \"" @ %outputEventName @"\" on line " @ %line);
+			error("EventScriptServer_load :: Invalid output name \"" @ %outputEventName @ "\" on line " @ %line);
 			return;
 		}
 		%brick.eventOutput[%brick.numEvents] = %outputEventName;
@@ -182,7 +182,7 @@ function EventScriptServer_load(%brick, %script)
 		%count = getFieldCount(%params);
 		if (%paramCount != %count)
 		{
-			error("EventScriptServer_load :: Invalid amount of parameters for \"" @ %outputEventName @"\" on line " @ %line);
+			error("EventScriptServer_load :: Invalid amount of parameters for \"" @ %outputEventName @ "\" on line " @ %line);
 			return;
 		}
 
