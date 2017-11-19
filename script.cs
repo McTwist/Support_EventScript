@@ -198,6 +198,11 @@ function EventScript_fromScript(%script, %error)
 						%n = -2;
 						break;
 					}
+					else if (!%readChars && strpos("1234567890", strlwr(%c)) >= 0)
+					{
+						%n = -3;
+						break;
+					}
 					else
 					{
 						%readChars = true;
@@ -211,6 +216,8 @@ function EventScript_fromScript(%script, %error)
 						call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
 					else if (%n == -2)
 						call(%error, "Parse Error: Input event containing spaces on line " @ %line);
+					else if (%n == -3)
+						call(%error, "Parse Error: Input event starting with numbers on line " @ %line);
 					%list.error = true;
 					return %list;
 				}
