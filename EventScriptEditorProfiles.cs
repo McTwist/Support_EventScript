@@ -8,7 +8,7 @@
 new GUIControlProfile(EventScriptEditor_ScrollProfile : GuiScrollProfile)
 {
 	hasBitmapArray = true;
-	bitmap = "base/blockScroll";
+	bitmap = "base/client/ui/blockScroll";
 	border = true;
 	borderColor   = "86 86 86 255";
 	borderColorHL = "86 86 86 255";
