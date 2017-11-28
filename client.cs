@@ -208,7 +208,8 @@ function EventScriptClient_load(%script)
 				%event.getObject(%n).setActive(0);
 				%event.getObject(%n).setSelected(%targetIdx);
 
-				%event.getObject(%n++).setValue(%NTIdx);
+				%NTIdx = %event.getObject(%n++).findText(%NTName);
+				%event.getObject(%n).setValue(%NTIdx);
 				%event.getObject(%n).setActive(0);
 				WrenchEventsDlg.createOutputlist(%event, %event.getObject(%n), %inputEventIdx, fxDTSBrick);
 			}
