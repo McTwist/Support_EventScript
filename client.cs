@@ -10,6 +10,7 @@
 // Load needed script files
 exec("./script.cs");
 exec("./bind.cs");
+exec("./GuiPopUpMenuCtrl.cs");
 
 exec("./EventScriptEditorProfiles.cs");
 exec("./EventScriptEditorWindow.gui");
