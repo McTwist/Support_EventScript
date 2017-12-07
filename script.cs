@@ -442,24 +442,15 @@ function EventScript_fromScript(%script, %error)
 					if (%readChars)
 						%lastSpace = true;
 					if (%c $= "\n")
-					{
 						%line++;
-						if (%readChars)
-							break;
-					}
 				}
-				else if (%c $= "(")
+				else if (%c $= "(" || (%readChars && %lastSpace))
 				{
 					break;
 				}
 				else if (strpos("1234567890abcdefghijklmnopqrstuvwxyz_", strlwr(%c)) < 0)
 				{
 					%n = -1;
-					break;
-				}
-				else if (%readChars && %lastSpace)
-				{
-					%n = -2;
 					break;
 				}
 				else
@@ -471,10 +462,7 @@ function EventScript_fromScript(%script, %error)
 			// Found errors
 			if (%n < 0)
 			{
-				if (%n == -1)
-					call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
-				else if (%n == -2)
-					call(%error, "Parse Error: Output event containing spaces on line " @ %line);
+				call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
 				%list.error = true;
 				return %list;
 			}
@@ -485,13 +473,16 @@ function EventScript_fromScript(%script, %error)
 			%i = %n;
 
 			// Change state
-			if (%n >= %len || %c $= "\n")
+			if (%n >= %len || %c !$= "(")
 			{
+				// Move back to avoid missing character
+				if (%n < %len)
+					%i--;
 				%state = 0;
 				// Finished event
 				%list.count++;
 			}
-			else if (%c $= "(")
+			else
 			{
 				%state = 3;
 			}
