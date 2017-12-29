@@ -1,7 +1,7 @@
 // ======================
 // EventScript
 // Author: McTwist (9845)
-// Version: 1.2.20171117
+// Version: 1.3.20171119
 // ======================
 // EventScript is a script language designed for an easier conversion
 // between the in-game event system and a text version that can be used
@@ -184,6 +184,12 @@ function EventScript_fromScript(%script, %error)
 						if (%c $= "\n")
 							%line++;
 					}
+					else if (%c $= ":"
+						&& %list.value[%list.count, "enabled"] $= ""
+						&& %list.value[%list.count, "delay"] $= "")
+					{
+						break;
+					}
 					else if (%c $= "-" && getSubStr(%script, %n, 2) $= "->")
 					{
 						break;
@@ -196,6 +202,11 @@ function EventScript_fromScript(%script, %error)
 					else if (%readChars && %lastSpace)
 					{
 						%n = -2;
+						break;
+					}
+					else if (!%readChars && strpos("1234567890", strlwr(%c)) >= 0)
+					{
+						%n = -3;
 						break;
 					}
 					else
@@ -211,6 +222,8 @@ function EventScript_fromScript(%script, %error)
 						call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
 					else if (%n == -2)
 						call(%error, "Parse Error: Input event containing spaces on line " @ %line);
+					else if (%n == -3)
+						call(%error, "Parse Error: Input event starting with numbers on line " @ %line);
 					%list.error = true;
 					return %list;
 				}
@@ -221,23 +234,42 @@ function EventScript_fromScript(%script, %error)
 					return %list;
 				}
 
-				// Update line found
-				if (%list.value[%list.count, "line"] $= "")
-					%list.value[%list.count, "line"] = %startLine;
-
 				%data = trim(getSubStr(%script, %i, %n - %i));
-				%list.value[%list.count, "inputEventName"] = %data;
 
-				%i = %n + 1;
-				%state = 1;
+				// Label
+				if (%c $= ":")
+				{
+					if (%labelTable[%data] !$= "")
+					{
+						call(%error, "Parse Error: Duplicate label \"" @ %data @ "\" found on line " @ %line
+							@ ", previous found at line " @ %list.value[%labelTable[%data], "line"]);
+						%list.error = true;
+						return %list;
+					}
 
-				// Set default values
-				if (%list.value[%list.count, "enabled"] $= "")
-					%list.value[%list.count, "enabled"] = true;
-				if (%list.value[%list.count, "delay"] $= "")
-					%list.value[%list.count, "delay"] = 0;
-				if (%list.value[%list.count, "line"] $= "")
-					%list.value[%list.count, "line"] = %line;
+					%labelTable[%data] = %list.count;
+					%i = %n;
+				}
+				// Input event
+				else
+				{
+					// Update line found
+					if (%list.value[%list.count, "line"] $= "")
+						%list.value[%list.count, "line"] = %startLine;
+
+					%list.value[%list.count, "inputEventName"] = %data;
+
+					%i = %n + 1;
+					%state = 1;
+
+					// Set default values
+					if (%list.value[%list.count, "enabled"] $= "")
+						%list.value[%list.count, "enabled"] = true;
+					if (%list.value[%list.count, "delay"] $= "")
+						%list.value[%list.count, "delay"] = 0;
+					if (%list.value[%list.count, "line"] $= "")
+						%list.value[%list.count, "line"] = %line;
+				}
 			}
 
 		// Target
@@ -410,24 +442,15 @@ function EventScript_fromScript(%script, %error)
 					if (%readChars)
 						%lastSpace = true;
 					if (%c $= "\n")
-					{
 						%line++;
-						if (%readChars)
-							break;
-					}
 				}
-				else if (%c $= "(")
+				else if (%c $= "(" || (%readChars && %lastSpace))
 				{
 					break;
 				}
 				else if (strpos("1234567890abcdefghijklmnopqrstuvwxyz_", strlwr(%c)) < 0)
 				{
 					%n = -1;
-					break;
-				}
-				else if (%readChars && %lastSpace)
-				{
-					%n = -2;
 					break;
 				}
 				else
@@ -439,10 +462,7 @@ function EventScript_fromScript(%script, %error)
 			// Found errors
 			if (%n < 0)
 			{
-				if (%n == -1)
-					call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
-				else if (%n == -2)
-					call(%error, "Parse Error: Output event containing spaces on line " @ %line);
+				call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
 				%list.error = true;
 				return %list;
 			}
@@ -453,13 +473,16 @@ function EventScript_fromScript(%script, %error)
 			%i = %n;
 
 			// Change state
-			if (%n >= %len || %c $= "\n")
+			if (%n >= %len || %c !$= "(")
 			{
+				// Move back to avoid missing character
+				if (%n < %len)
+					%i--;
 				%state = 0;
 				// Finished event
 				%list.count++;
 			}
-			else if (%c $= "(")
+			else
 			{
 				%state = 3;
 			}
@@ -578,7 +601,6 @@ function EventScript_fromScript(%script, %error)
 				%indexTableLine[%indexTableCount] = %line;
 				%indexTableIndex[%indexTableCount] = %list.count;
 				%indexTableParam[%indexTableCount] = getFieldCount(%list.value[%list.count, "param"]);
-				%indexTableType[%indexTableCount] = -1;
 				%indexTableListCount[%indexTableCount] = 0;
 
 				%state = 4;
@@ -661,6 +683,7 @@ function EventScript_fromScript(%script, %error)
 
 			%readChars = false;
 			%lastSpace = false;
+			%isLabel = false;
 
 			// Verify characters
 			for (%n = %i; %n < %len; %n++)
@@ -678,7 +701,7 @@ function EventScript_fromScript(%script, %error)
 				{
 					break;
 				}
-				else if (strpos("1234567890", strlwr(%c)) < 0)
+				else if (strpos("1234567890abcdefghijklmnopqrstuvwxyz_", strlwr(%c)) < 0)
 				{
 					%n = -1;
 					break;
@@ -690,6 +713,9 @@ function EventScript_fromScript(%script, %error)
 				}
 				else
 				{
+					// Need at least one alpha character to be a proper label
+					if (strpos("1234567890", strlwr(%c)) < 0)
+						%isLabel = true;
 					%readChars = true;
 				}
 			}
@@ -713,56 +739,57 @@ function EventScript_fromScript(%script, %error)
 
 			%data = trim(getSubStr(%script, %i, %n - %i));
 
+			%currentListCount = %indexTableListCount[%indexTableCount];
+			%indexTableListLabel[%indexTableCount, %currentListCount] = %isLabel;
+			%indexTableList[%indexTableCount, %currentListCount] = %data;
+			%indexTableListCount[%indexTableCount]++;
+
 			%i = %n;
 
 			if (%c $= ",")
 			{
-				if (%indexTableType[%indexTableCount] == 1)
-				{
-					%n = -1;
-				}
-				else if (%data $= "")
+				// Empty index
+				if (%data $= ""
+					&& (%indexTableListCount[%indexTableCount] == 0
+						|| %indexTableType[%indexTableCount, %currentListCount - 1] == 0))
 				{
 					%n = -2;
 				}
 				else
 				{
-					%indexTableType[%indexTableCount] = 0;
-					%indexTableList[%indexTableCount, %indexTableListCount[%indexTableCount]] = %data;
-					%indexTableListCount[%indexTableCount]++;
+					%indexTableType[%indexTableCount, %currentListCount] = 0;
 				}
 
+				%currentListCount++;
 			}
 			else if (%c $= ":")
 			{
-				if (%indexTableType[%indexTableCount] == 0)
+				// Already got a range
+				if (%currentListCount > 0
+					&& %indexTableType[%indexTableCount, %currentListCount - 1] == 1)
 				{
-					%n = -1;
+					%n = -3;
 				}
 				else
 				{
-					%indexTableType[%indexTableCount] = 1;
-					%indexTableStart[%indexTableCount] = %data;
+					%indexTableType[%indexTableCount, %currentListCount] = 1;
 				}
+
+				%currentListCount++;
 			}
 			else if (%c $= "]")
 			{
-				if (%indexTableType[%indexTableCount] == -1 || (%indexTableType[%indexTableCount] != 1 && %data $= ""))
+				// Empty index
+				if (%data $= ""
+					&& (%currentListCount == 0
+						|| %indexTableType[%indexTableCount, %currentListCount - 1] == 0))
 				{
 					%n = -2;
 				}
-				else if (%indexTableType[%indexTableCount] == 0)
+				else
 				{
-					%indexTableList[%indexTableCount, %indexTableListCount[%indexTableCount]] = %data;
-					%indexTableListCount[%indexTableCount]++;
-				}
-				else if (%indexTableType[%indexTableCount] == 1)
-				{
-					%indexTableEnd[%indexTableCount] = %data;
-				}
+					%indexTableType[%indexTableCount, %currentListCount] = 0;
 
-				if (%n >= 0)
-				{
 					// Finished, so lets find next and get out of here
 					for (%n = %i + 1; %n < %len; %n++)
 					{
@@ -783,20 +810,20 @@ function EventScript_fromScript(%script, %error)
 							break;
 						}
 					}
-				}
 
-				if (%c $= ",")
-				{
-					%state = 3;
-				}
-				else if (%c $= ")")
-				{
-					%state = 0;
-					// Finished events
-					%list.count++;
-				}
+					if (%c $= ",")
+					{
+						%state = 3;
+					}
+					else if (%c $= ")")
+					{
+						%state = 0;
+						// Finished events
+						%list.count++;
+					}
 
-				%indexTableCount++;
+					%indexTableCount++;
+				}
 			}
 
 			// Found errors
@@ -806,6 +833,8 @@ function EventScript_fromScript(%script, %error)
 					call(%error, "Parse Error: Found illegal character " @ %c @ " on line " @ %line);
 				else if (%n == -2)
 					call(%error, "Parse Error: Empty index found on line " @ %line);
+				else if (%n == -3)
+					call(%error, "Parse Error: Ranges allow only two values on line " @ %line);
 				%list.error = true;
 				return %list;
 			}
@@ -815,7 +844,7 @@ function EventScript_fromScript(%script, %error)
 				%list.error = true;
 				return %list;
 			}
-			
+
 			%i = %n;
 		}
 	}
@@ -838,50 +867,64 @@ function EventScript_fromScript(%script, %error)
 		%index = %indexTableIndex[%i];
 		%param = %indexTableParam[%i];
 
-		switch (%indexTableType[%i])
+		%params = "";
+
+		%l = -1;
+		for (%n = 0; %n < %indexTableListCount[%i]; %n++)
 		{
-		// Indexing
-		case 0:
+			%var = %indexTableList[%i, %n];
 
-			%params = "";
-			for (%n = 0; %n < %indexTableListCount[%i]; %n++)
+			// Handle labels
+			if (%indexTableListLabel[%i, %n])
 			{
-				%var = setWord(%params, %n, %indexTableList[%i, %n]);
-				%params = mClamp(, 0, %list.count - 1);
+				if (%labelTable[%var] $= "")
+				{
+					call(%error, "Parser Error: Label \"" @ %var @ "\" does not exist on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+
+				%var = %labelTable[%var];
 			}
 
-			%list.value[%index, "params"] = setField(%list.value[%index, "params"], %param, %params);
+			// Default value
+			if (%indexTableType[%i, %n] == 2 && %var $= "")
+				%var = %list.count - 1;
+			else if (%var $= "")
+				%var = 0;
 
-		// Range
-		case 1:
+			%var = mClamp(%var, 0, %list.count - 1);
 
-			%start = %indexTableStart[%i];
-			%end = %indexTableEnd[%i];
-
-			// Default values
-			if (%start $= "")
-				%start = 0;
-			if (%end $= "")
-				%end = %list.count - 1;
-
-			%start = mClamp(%start, 0, %list.count - 1);
-			%end = mClamp(%end, 0, %list.count - 1);
-
-			// Incorrect indexing order
-			if (%start > %end)
+			switch (%indexTableType[%i, %n])
 			{
-				call(%error, "Logic Error: Invalid indexing values [" @ %start @ ":" @ %end @ "] on line " @ %line);
-				%list.error = true;
-				return %list;
+			// Indexing
+			case 0:
+
+				%params = setWord(%params, %l++, %var);
+
+			// Range start
+			case 1:
+
+				%start = %var;
+				%indexTableType[%i, %n+1] = 2;
+
+			// Range ends
+			case 2:
+
+				// Incorrect indexing order
+				if (%start > %var)
+				{
+					call(%error, "Logic Error: Invalid indexing values " @ %start @ ":" @ %var @ " on line " @ %line);
+					%list.error = true;
+					return %list;
+				}
+
+				for (%m = %start; %m <= %var; %m++)
+					%params = setWord(%params, %l++, %m);
 			}
-
-			%params = "";
-			%n = -1;
-			for (%m = %start; %m <= %end; %m++)
-				%params = setWord(%params, %n++, %m);
-
-			%list.value[%index, "params"] = setField(%list.value[%index, "params"], %param, %params);
 		}
+
+		%list.value[%index, "params"] = setField(%list.value[%index, "params"], %param, %params);
 	}
 
 	return %list;

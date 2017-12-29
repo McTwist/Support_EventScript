@@ -47,7 +47,7 @@ new GuiControl(EventScriptEditorWindow) {
          text = "Save";
          groupNum = "-1";
          buttonType = "PushButton";
-         bitmap = "base/button2";
+         bitmap = "base/client/ui/button2";
          lockAspectRatio = "0";
          alignLeft = "0";
          alignTop = "0";
