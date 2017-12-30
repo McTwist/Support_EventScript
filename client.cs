@@ -161,7 +161,7 @@ function EventScriptClient_load(%script)
 		%event.getObject(%n++).setValue(%delay);
 
 		// Input event index
-		%inputEventIdx = %event.getObject(%n++).findText(%inputEventName);
+		%inputEventIdx = %event.getObject(%n++).findText(%inputEventName, true);
 		// Invalid
 		if (%inputEventIdx $= -1)
 		{
@@ -177,7 +177,7 @@ function EventScriptClient_load(%script)
 
 		// Target index
 		%n++;
-		%targetIdx = %targetName $= "" ? -1 : %event.getObject(%n).findText(%targetName);
+		%targetIdx = %targetName $= "" ? -1 : %event.getObject(%n).findText(%targetName, true);
 
 		// Special named targets rule
 		if (ServerConnection.allowNamedTargets)
@@ -187,7 +187,7 @@ function EventScriptClient_load(%script)
 			if (%targetIdx $= -1)
 			{
 				// Target name index
-				%NTIdx = %event.getObject(%n++).findText(%NTName);
+				%NTIdx = %event.getObject(%n++).findText(%NTName, true);
 				// Invalid
 				if (%NTIdx $= -1)
 				{
@@ -209,7 +209,7 @@ function EventScriptClient_load(%script)
 				%event.getObject(%n).setActive(0);
 				%event.getObject(%n).setSelected(%targetIdx);
 
-				%NTIdx = %event.getObject(%n++).findText(%NTName);
+				%NTIdx = %event.getObject(%n++).findText(%NTName, true);
 				%event.getObject(%n).setValue(%NTIdx);
 				%event.getObject(%n).setActive(0);
 				WrenchEventsDlg.createOutputlist(%event, %event.getObject(%n), %inputEventIdx, fxDTSBrick);
@@ -221,7 +221,7 @@ function EventScriptClient_load(%script)
 		}
 
 		// Output event index
-		%outputEventIdx = %event.getObject(%n++).findText(%outputEventName);
+		%outputEventIdx = %event.getObject(%n++).findText(%outputEventName, true);
 
 		if (%outputEventIdx $= -1)
 		{
@@ -285,7 +285,7 @@ function EventScriptClient_load(%script)
 				}
 			// List
 			case "GuiPopUpMenuCtrl":
-				%parIdx = %param.findText(%par);
+				%parIdx = %param.findText(%par, true);
 				if (%parIdx $= -1)
 					%warnings = (%warnings !$= "" ? %warnings @ "\n" : "") @ ("Warning :: Invalid output parameter \"" @ %par @ "\" on line " @ %line);
 				%param.setSelected(%parIdx);

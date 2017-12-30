@@ -24,9 +24,9 @@ package GuiPopUpMenuCtrlPackage
 	}
 
 	// Find text in popup menu controller
-	function GuiPopUpMenuCtrl::findText(%this, %text)
+	function GuiPopUpMenuCtrl::findText(%this, %text, %case)
 	{
-		if (%this.table[%text] !$= "")
+		if (%case && %this.table[%text] !$= "")
 			return %this.table[%text];
 		return Parent::findText(%this, %text);
 	}
