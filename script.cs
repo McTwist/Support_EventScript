@@ -989,8 +989,8 @@ function EventScript_toScript(%list)
 			else
 			{
 				// Add escapes
-				%param = strReplace(%param, "\"", "\\\"");
 				%param = strReplace(%param, "\\", "\\\\");
+				%param = strReplace(%param, "\"", "\\\"");
 				%script = %script @ "\"" @ %param @ "\"";
 			}
 		}
