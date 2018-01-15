@@ -1,7 +1,7 @@
 // ======================
 // EventScript
 // Author: McTwist (9845)
-// Version: 1.3.20171119
+// Version: 1.4.20180115
 // ======================
 // EventScript is a script language designed for an easier conversion
 // between the in-game event system and a text version that can be used

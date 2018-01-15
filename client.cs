@@ -1,7 +1,7 @@
 //
 // EventScript Client
 // Author: McTwist (9845)
-// Date: 2017-11-17
+// Date: 2018-01-15
 //
 // Contains the client version of transforming an EventScript list object
 // into either readable script or usable events.
