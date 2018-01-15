@@ -247,6 +247,11 @@ function EventScript_fromScript(%script, %error)
 						return %list;
 					}
 
+					// Store for further use
+					%list.labelName[%data] = %list.count;
+					%list.labelIndex[%list.count] = %data;
+
+					// Quicker access
 					%labelTable[%data] = %list.count;
 					%i = %n;
 				}
@@ -969,7 +974,6 @@ function EventScript_toScript(%list)
 
 		// Output event
 		%script = %script @ " -> " @ %outputEventName;
-
 
 		// Parameters
 		%count = getFieldCount(%params);
