@@ -15,6 +15,8 @@ exec("./GuiPopUpMenuCtrl.cs");
 exec("./EventScriptEditorProfiles.cs");
 exec("./EventScriptEditorWindow.gui");
 
+exec("./workarounds.cs");
+
 // Declare keybinds
 CreateBind("EventScript", "Copy", EventScriptClient_copy);
 CreateBind("EventScript", "Paste", EventScriptClient_paste);
