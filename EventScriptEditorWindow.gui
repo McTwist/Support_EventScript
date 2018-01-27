@@ -34,11 +34,11 @@ new GuiControl(EventScriptEditorWindow) {
       closeCommand = "EventScriptClient_closeEditor(false);";
 
       new GuiBitmapButtonCtrl() {
-         profile = "GuiButtonProfile";
+         profile = "BlockButtonProfile";
          horizSizing = "left";
          vertSizing = "bottom";
-         position = "280 4";
-         extent = "56 17";
+         position = "280 3";
+         extent = "56 19";
          minExtent = "8 2";
          enabled = "1";
          visible = "1";
