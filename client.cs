@@ -1,7 +1,7 @@
 //
 // EventScript Client
 // Author: McTwist (9845)
-// Date: 2018-01-15
+// Date: 2018-02-06
 //
 // Contains the client version of transforming an EventScript list object
 // into either readable script or usable events.
@@ -73,7 +73,7 @@ function EventScriptClient_save()
 		// Output event
 		%outputEventName = %event.getObject(%n++).getValue();
 
-		%params = "";
+		%params = 0;
 
 		// Parameters
 		for (%n++; %n < %event.getCount(); %n++)
@@ -99,7 +99,8 @@ function EventScriptClient_save()
 			default:
 				%val = %param.getValue();
 			}
-			%params = (%params !$= "") ? %params TAB %val : %val;
+			%params[%params] = %val;
+			%params++;
 		}
 
 		// Store into list
@@ -110,6 +111,8 @@ function EventScriptClient_save()
 		%list.value[%i, "NTName"] = %NTName;
 		%list.value[%i, "outputEventName"] = %outputEventName;
 		%list.value[%i, "params"] = %params;
+		for (%m = 0; %m < %params; %m++)
+			%list.value[%i, "params", %m] = %params[%m];
 		%list.count++;
 	}
 
@@ -150,7 +153,9 @@ function EventScriptClient_load(%script)
 		%targetName = %list.value[%i, "targetName"];
 		%NTName = %list.value[%i, "NTName"];
 		%outputEventName = %list.value[%i, "outputEventName"];
-		%params = %list.value[%i, "params"];
+		%params = %list.value[%i, "params"] | 0;
+		for (%m = 0; %m < %params; %m++)
+			%params[%m] = %list.value[%i, "params", %m];
 
 		%event = WrenchEvents_Box.getObject(WrenchEvents_Box.getCount() - 1);
 		%n = -1;
@@ -236,7 +241,7 @@ function EventScriptClient_load(%script)
 		%event.getObject(%n).setSelected(%outputEventIdx);
 		%n++;
 
-		if (getFieldCount(%params) != (%event.getCount() - %n))
+		if (%params != (%event.getCount() - %n))
 		{
 			EventScriptClient_error("Error :: Invalid amount of parameters for output event \"" @ %outputEventName @ "\" on line " @ %line);
 			$WrenchEventLoading = 0;
@@ -248,7 +253,7 @@ function EventScriptClient_load(%script)
 		{
 			%param = %event.getObject(%n);
 
-			%par = getField(%params, %m++);
+			%par = %params[%m++];
 
 			switch$ (%param.getClassName())
 			{

@@ -1,7 +1,7 @@
 // ======================
 // EventScript
 // Author: McTwist (9845)
-// Version: 1.4.20180115
+// Version: 1.5.20180206
 // ======================
 // EventScript is a script language designed for an easier conversion
 // between the in-game event system and a text version that can be used
@@ -550,8 +550,10 @@ function EventScript_fromScript(%script, %error)
 				%data = strReplace(%data, "\\\"", "\"");
 				%data = strReplace(%data, "\\\\", "\\");
 
-				// Append list (Dependency)
-				%list.value[%list.count, "params"] = pushBack(%list.value[%list.count, "params"], %data, "\t");
+				// Append list
+				%list.value[%list.count, "params"] |= 0;
+				%list.value[%list.count, "params", %list.value[%list.count, "params"]] = %data;
+				%list.value[%list.count, "params"]++;
 
 				%i = %n;
 
@@ -669,8 +671,10 @@ function EventScript_fromScript(%script, %error)
 
 				%data = trim(getSubStr(%script, %i, %n - %i));
 
-				// Append list (Dependency)
-				%list.value[%list.count, "params"] = pushBack(%list.value[%list.count, "params"], %data, "\t");
+				// Append list
+				%list.value[%list.count, "params"] |= 0;
+				%list.value[%list.count, "params", %list.value[%list.count, "params"]] = %data;
+				%list.value[%list.count, "params"]++;
 
 				%i = %n;
 
@@ -929,7 +933,7 @@ function EventScript_fromScript(%script, %error)
 			}
 		}
 
-		%list.value[%index, "params"] = setField(%list.value[%index, "params"], %param, %params);
+		%list.value[%index, "params", %param] = %params;
 	}
 
 	return %list;
@@ -955,6 +959,8 @@ function EventScript_toScript(%list)
 		%NTName = %list.value[%i, "NTName"];
 		%outputEventName = %list.value[%i, "outputEventName"];
 		%params = %list.value[%i, "params"];
+		for (%m = 0; %m < %params; %m++)
+			%params[%m] = %list.value[%i, "params", %m];
 
 		// Enabled
 		%script = %script @ "[" @ (%enabled ? "x" : " ") @ "]";
@@ -976,7 +982,7 @@ function EventScript_toScript(%list)
 		%script = %script @ " -> " @ %outputEventName;
 
 		// Parameters
-		%count = getFieldCount(%params);
+		%count = %params;
 		if (%count > 0)
 			%script = %script @ "(";
 
@@ -985,7 +991,7 @@ function EventScript_toScript(%list)
 			if (%n != 0)
 				%script = %script @ ", ";
 
-			%param = getField(%params, %n);
+			%param = %params[%n];
 
 			// Check if number
 			if ((%param + 0) $= %param)

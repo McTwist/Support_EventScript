@@ -1,7 +1,7 @@
 //
 // EventScript Server
 // Author: McTwist (9845)
-// Date: 2017-11-19
+// Date: 2018-02-06
 //
 // Contains the server version of transforming an EventScript list object
 // into either readable script or usable events.
@@ -44,7 +44,7 @@ function EventScriptServer_save(%brick)
 		%paramCount = outputEvent_GetNumParametersFromIdx(%targetClass, %brick.eventOutputIdx[%i]);
 		%paramList = $OutputEvent_parameterList[%targetClass, %brick.eventOutputIdx[%i]];
 
-		%params = "";
+		%params = 0;
 		for (%n = 0; %n < %paramCount; %n++)
 		{
 			%paramField = getField(%paramList, %n);
@@ -76,10 +76,13 @@ function EventScriptServer_save(%brick)
 				%param = getColorIDTable(%param);
 			}
 
-			%params = setField(%params, %n, %param);
+			%params[%n] = %param;
 		}
+		%params = %paramCount;
 
 		%list.value[%i, "params"] = %params;
+		for (%m = 0; %m < %params; %m++)
+			%list.value[%i, "params", %m] = %params[%m];
 
 		%list.count++;
 	}
@@ -118,7 +121,9 @@ function EventScriptServer_load(%brick, %script)
 		%targetName = %list.value[%i, "targetName"];
 		%NTName = %list.value[%i, "NTName"];
 		%outputEventName = %list.value[%i, "outputEventName"];
-		%params = %list.value[%i, "params"];
+		%params = %list.value[%i, "params"] | 0;
+		for (%m = 0; %m < %params; %m++)
+			%params[%m] = %list.value[%i, "params", %m];
 
 		// Enabled
 		%brick.eventEnabled[%brick.numEvents] = !!%enabled;
@@ -179,7 +184,7 @@ function EventScriptServer_load(%brick, %script)
 		// Parameters
 		%paramCount = outputEvent_GetNumParametersFromIdx(%targetClass, %outputEventIdx);
 		%paramList = $OutputEvent_parameterList[%targetClass, %outputEventIdx];
-		%count = getFieldCount(%params);
+		%count = %params;
 		if (%paramCount != %count)
 		{
 			error("EventScriptServer_load :: Invalid amount of parameters for \"" @ %outputEventName @ "\" on line " @ %line);
@@ -189,7 +194,7 @@ function EventScriptServer_load(%brick, %script)
 		for (%n = 0; %n <= %count; %n++)
 		{
 			%paramField = getField(%paramList, %n);
-			%param = getField(%params, %n);
+			%param = %params[%n];
 			
 			// Translate parameter
 			switch$ (strlwr(getWord(%paramField, 0)))
