@@ -474,6 +474,7 @@ function EventScript_fromScript(%script, %error)
 
 			%data = trim(getSubStr(%script, %i, %n - %i));
 			%list.value[%list.count, "outputEventName"] = %data;
+			%list.value[%list.count, "params"] |= 0;
 
 			%i = %n;
 
@@ -551,7 +552,6 @@ function EventScript_fromScript(%script, %error)
 				%data = strReplace(%data, "\\\\", "\\");
 
 				// Append list
-				%list.value[%list.count, "params"] |= 0;
 				%list.value[%list.count, "params", %list.value[%list.count, "params"]] = %data;
 				%list.value[%list.count, "params"]++;
 
@@ -607,8 +607,10 @@ function EventScript_fromScript(%script, %error)
 				// Set default values for table element
 				%indexTableLine[%indexTableCount] = %line;
 				%indexTableIndex[%indexTableCount] = %list.count;
-				%indexTableParam[%indexTableCount] = getFieldCount(%list.value[%list.count, "param"]);
+				%indexTableParam[%indexTableCount] = %list.value[%list.count, "params"];
 				%indexTableListCount[%indexTableCount] = 0;
+
+				%list.value[%list.count, "params"]++;
 
 				%state = 4;
 
@@ -672,7 +674,6 @@ function EventScript_fromScript(%script, %error)
 				%data = trim(getSubStr(%script, %i, %n - %i));
 
 				// Append list
-				%list.value[%list.count, "params"] |= 0;
 				%list.value[%list.count, "params", %list.value[%list.count, "params"]] = %data;
 				%list.value[%list.count, "params"]++;
 
@@ -874,9 +875,9 @@ function EventScript_fromScript(%script, %error)
 	{
 		%line = %indexTableLine[%i];
 		%index = %indexTableIndex[%i];
-		%param = %indexTableParam[%i];
+		%paramIndex = %indexTableParam[%i];
 
-		%params = "";
+		%value = "";
 
 		%l = -1;
 		for (%n = 0; %n < %indexTableListCount[%i]; %n++)
@@ -909,7 +910,7 @@ function EventScript_fromScript(%script, %error)
 			// Indexing
 			case 0:
 
-				%params = setWord(%params, %l++, %var);
+				%value = setWord(%value, %l++, %var);
 
 			// Range start
 			case 1:
@@ -929,11 +930,11 @@ function EventScript_fromScript(%script, %error)
 				}
 
 				for (%m = %start; %m <= %var; %m++)
-					%params = setWord(%params, %l++, %m);
+					%value = setWord(%value, %l++, %m);
 			}
 		}
 
-		%list.value[%index, "params", %param] = %params;
+		%list.value[%index, "params", %paramIndex] = %value;
 	}
 
 	return %list;
