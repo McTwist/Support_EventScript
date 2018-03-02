@@ -1,7 +1,7 @@
 // =================
 // EventScript Client
 // Author: McTwist (9845)
-// Date: 2018-01-27
+// Date: 2018-03-02
 //
 // Workaround fixes to solve issues regarding strange phenomena
 // on either platform
@@ -96,3 +96,66 @@ new GuiSwatchCtrl(EventScriptWrenchButtons) {
 
 WrenchEvents_Window.add(EventScriptWrenchButtons);
 
+// =================
+// Mac keybind workaround v2
+// Force global key
+// =================
+
+package EventScriptPackage_Keybind
+{
+	// Event window is open
+	function wrenchEventsDlg::onWake(%this)
+	{
+		Parent::onWake(%this);
+
+		%map = GlobalActionMap.getId();
+
+		// Get possible binding
+		%copy = MoveMap.getbinding(EventScriptClient_copy);
+		%paste = MoveMap.getbinding(EventScriptClient_paste);
+		%editor = MoveMap.getbinding(EventScriptClient_openEditor);
+		$EventScript::bind::copy = (%copy !$= "") ? %copy : (isWindows() ? "keyboard ctrl-shift c" : "keyboard cmd-shift c");
+		$EventScript::bind::paste = (%paste !$= "") ? %paste : (isWindows() ? "keyboard ctrl-shift v" : "keyboard cmd-shift v");
+		$EventScript::bind::editor = (%editor !$= "") ? %editor : (isWindows() ? "keyboard ctrl-shift e" : "keyboard cmd-shift e");
+
+		GlobalActionMap.pushBind(firstWord($EventScript::bind::copy), restWords($EventScript::bind::copy), EventScriptClient_copy);
+		GlobalActionMap.pushBind(firstWord($EventScript::bind::paste), restWords($EventScript::bind::paste), EventScriptClient_paste);
+		GlobalActionMap.pushBind(firstWord($EventScript::bind::editor), restWords($EventScript::bind::editor), EventScriptClient_openEditor);
+	}
+
+	// Event window is closed
+	function wrenchEventsDlg::onSleep(%this)
+	{
+		Parent::onSleep(%this);
+
+		GlobalActionMap.popUnbind(firstWord($EventScript::bind::copy), restWords($EventScript::bind::copy));
+		GlobalActionMap.popUnbind(firstWord($EventScript::bind::paste), restWords($EventScript::bind::paste));
+		GlobalActionMap.popUnbind(firstWord($EventScript::bind::editor), restWords($EventScript::bind::editor));
+	}
+};
+activatePackage(EventScriptPackage_Keybind);
+
+// Push a new command to be used instead of current
+function ActionMap::pushBind(%map, %device, %action, %command)
+{
+	if (%map.getCommand(%device, %action) !$= "")
+	{
+		%map.stackBind[%device, %action] |= 0;
+		%map.stackBind[%device, %action, %map.stackBind[%device, %action]] = %map.getCommand(%device, %action);
+		%map.stackBind[%device, %action]++;
+	}
+
+	%map.bind(%device, %action, %command);
+}
+
+// Pop current command in favor for previous one, if there is one
+function ActionMap::popUnbind(%map, %device, %action)
+{
+	if (%map.stackBind[%device, %action] !$= "")
+	{
+		%map.stackBind[%device, %action]--;
+		%map.bind(%device, %action, %map.stackBind[%device, %action, %map.stackBind[%device, %action]]);
+		if (%map.stackBind[%device, %action] == 0)
+			%map.stackBind[%device, %action] = "";
+	}
+}
